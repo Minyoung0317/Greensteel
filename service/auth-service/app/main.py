@@ -120,11 +120,13 @@ async def auth_health():
     return {"status": "healthy", "service": "auth-service"}
 
 if __name__ == "__main__":
-    logger.info(f"💻 개발 모드로 실행 - 포트: 8003")
+    import os
+    port = int(os.getenv("PORT", "8003"))
+    logger.info(f"💻 개발 모드로 실행 - 포트: {port}")
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
-        port=8003,
+        port=port,
         reload=True,
         log_level="info"
     )
