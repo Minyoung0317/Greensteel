@@ -13,6 +13,9 @@ import pytz
 
 from app.router.user_router import auth_router
 
+# httpx 로그를 현재 시간으로 설정
+os.environ['TZ'] = 'Asia/Seoul'
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
