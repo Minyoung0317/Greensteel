@@ -23,6 +23,7 @@ from app.common.utility.factory.response_factory import ResponseFactory
 if os.getenv("RAILWAY_ENVIRONMENT") != "true":
     load_dotenv()
 
+# 로깅 설정 강화
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -33,6 +34,8 @@ logger = logging.getLogger("gateway_api")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Gateway API 서비스 시작")
+    logger.info(f"환경: {'Railway' if os.getenv('RAILWAY_ENVIRONMENT') == 'true' else 'Local/Docker'}")
+    logger.info(f"포트: {os.getenv('PORT', '8080')}")
     # Settings 초기화 및 앱 state에 등록
     app.state.settings = Settings()
     yield
@@ -95,10 +98,20 @@ async def proxy_post(
     sheet_names: Optional[List[str]] = Query(None, alias="sheet_name")
 ):
     try:
-        # 로깅
+        # 로깅 강화
         logger.info(f"🌈 POST 요청 받음: 서비스={service}, 경로={path}")
         if file:
             logger.info(f"파일명: {file.filename}, 시트 이름: {sheet_names if sheet_names else '없음'}")
+        
+        # 요청 본문 로깅 (auth-service로 전달할 데이터)
+        try:
+            body = await request.body()
+            if body:
+                logger.info(f"📝 요청 데이터 크기: {len(body)} bytes")
+                # auth-service로 데이터 로그 전달
+                await log_to_auth_service(service, path, body)
+        except Exception as e:
+            logger.warning(f"요청 본문 읽기 실패: {str(e)}")
 
         # 서비스 팩토리 생성
         factory = ServiceDiscovery(service_type=service)
@@ -106,7 +119,6 @@ async def proxy_post(
         # 요청 파라미터 초기화
         files = None
         params = None
-        body = None
         data = None
         
         # 헤더 전달 (JWT 및 사용자 ID - 미들웨어에서 이미 X-User-Id 헤더가 추가됨)
@@ -169,6 +181,33 @@ async def proxy_post(
             status_code=500
         )
 
+async def log_to_auth_service(service: ServiceType, path: str, body: bytes):
+    """auth-service로 데이터 로그를 전달하는 함수"""
+    try:
+        # auth-service로 로그 전달
+        auth_factory = ServiceDiscovery(service_type=ServiceType.AUTH)
+        
+        log_data = {
+            "service": service.value,
+            "path": path,
+            "data_size": len(body),
+            "timestamp": str(datetime.datetime.now()),
+            "source": "gateway"
+        }
+        
+        # auth-service의 로그 엔드포인트로 전달
+        await auth_factory.request(
+            method="POST",
+            path="logs/data",
+            headers={"Content-Type": "application/json"},
+            body=json.dumps(log_data).encode('utf-8')
+        )
+        
+        logger.info(f"📊 데이터 로그를 auth-service로 전달 완료: {service.value}/{path}")
+        
+    except Exception as e:
+        logger.error(f"auth-service로 로그 전달 실패: {str(e)}")
+
 # PUT - 일반 동적 라우팅 (JWT 적용)
 # PUT, DELETE, PATCH 프록시 제거 - POST 방식만 지원
 
@@ -189,8 +228,20 @@ async def root():
     logger.info("🌈 Gateway API 서비스 시작")
     return {"message": "Gateway API", "version": "0.1.0"}
 
-# ✅ 서버 실행
+# ✅ 서버 실행 - 환경 변수 처리 개선
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8080))
-    print(f"🚀 Gateway 서비스 시작 - 포트: {port}")
+    import datetime
+    import json
+    
+    # 포트 설정 개선
+    port_str = os.getenv("PORT", "8080")
+    try:
+        port = int(port_str)
+    except ValueError:
+        logger.error(f"잘못된 포트 값: {port_str}, 기본값 8080 사용")
+        port = 8080
+    
+    logger.info(f"🚀 Gateway 서비스 시작 - 포트: {port}")
+    logger.info(f"환경 변수 PORT: {os.getenv('PORT', '설정되지 않음')}")
+    
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)

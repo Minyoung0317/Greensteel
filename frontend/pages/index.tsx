@@ -72,6 +72,24 @@ export default function Home() {
   const [lastResponse, setLastResponse] = useState<UserInputResponse | null>(null)
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
 
+  // API 기본 URL 설정 (환경에 따라 동적 설정)
+  const getApiBaseUrl = () => {
+    if (typeof window !== 'undefined') {
+      // 클라이언트 사이드에서 환경 확인
+      const hostname = window.location.hostname
+      const protocol = window.location.protocol
+      
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://localhost:8080'
+      } else {
+        // Railway 또는 다른 프로덕션 환경
+        return `${protocol}//${hostname}`
+      }
+    }
+    // 서버 사이드에서는 기본값 사용
+    return 'http://localhost:8080'
+  }
+
   const createUserInputJSON = (message: string): UserInputData => {
     return {
       message: message.trim()
@@ -110,7 +128,8 @@ export default function Home() {
         password: loginData.password
       };
       
-      const response = await axios.post('http://localhost:8080/api/v1/user/login', apiRequestData);
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await axios.post(`${apiBaseUrl}/api/v1/user/login`, apiRequestData);
       
       console.log('=== 로그인 API 응답 ===');
       console.log('응답 상태:', response.status);
@@ -170,7 +189,8 @@ export default function Home() {
         password: signupData.password
       };
       
-      const response = await axios.post('http://localhost:8080/api/v1/user/signup', apiRequestData);
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await axios.post(`${apiBaseUrl}/api/v1/user/signup`, apiRequestData);
       
       console.log('=== 회원가입 API 응답 ===');
       console.log('응답 상태:', response.status);
@@ -214,14 +234,15 @@ export default function Home() {
       }
 
       // 사용자 메시지를 먼저 추가
-      setMessages(prev => [...prev, userMessage])
+      setMessages((prev: ChatMessage[]) => [...prev, userMessage])
       
       // Gateway API로 사용자 입력 전송
       const userInputJSON = createUserInputJSON(inputValue)
       console.log('=== 사용자 입력 API 요청 ===')
       console.log('요청 데이터:', JSON.stringify(userInputJSON, null, 2))
       
-      const response = await axios.post('http://localhost:8080/api/v1/chatbot/process', userInputJSON)
+      const apiBaseUrl = getApiBaseUrl();
+      const response = await axios.post(`${apiBaseUrl}/api/v1/chatbot/process`, userInputJSON)
       
       console.log('=== 사용자 입력 API 응답 ===')
       console.log('응답 상태:', response.status)
@@ -236,7 +257,7 @@ export default function Home() {
       }
 
       // AI 응답 메시지 추가
-      setMessages(prev => [...prev, assistantReply])
+      setMessages((prev: ChatMessage[]) => [...prev, assistantReply])
       setInputValue('')
       
     } catch (err: any) {
@@ -252,7 +273,7 @@ export default function Home() {
         timestamp: new Date().toISOString()
       }
       
-      setMessages(prev => [...prev, assistantReply])
+      setMessages((prev: ChatMessage[]) => [...prev, assistantReply])
       setError(err.response?.data?.detail || '입력 처리 중 오류가 발생했습니다.')
       console.error('Error processing input:', err)
     } finally {

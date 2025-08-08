@@ -1,10 +1,16 @@
-from fastapi import APIRouter, Cookie, HTTPException, Query
+from fastapi import APIRouter, Cookie, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
+import logging
+import json
+from datetime import datetime
 
-from http://app.domain.auth.controller.google_controller import GoogleController
+from app.domain.auth.controller.google_controller import GoogleController
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 google_controller = GoogleController()
+
+# 로깅 설정
+logger = logging.getLogger("auth_service")
 
 @auth_router.get("/google/login", summary="Google 로그인 시작")
 async def google_login(
@@ -68,3 +74,45 @@ async def get_profile(session_token: str | None = Cookie(None)):
     except Exception as e:
         print(f"프로필 조회 오류: {e}")
         raise HTTPException(status_code=401, detail=str(e))
+
+@auth_router.post("/logs/data", summary="데이터 로그 수신")
+async def receive_data_log(request: Request):
+    """
+    Gateway에서 전달받은 데이터 로그를 처리합니다.
+    """
+    try:
+        body = await request.body()
+        if body:
+            log_data = json.loads(body.decode('utf-8'))
+            logger.info(f"📊 데이터 로그 수신: {log_data}")
+            
+            # 로그 데이터 처리 (필요시 데이터베이스에 저장)
+            # 여기서는 로깅만 수행
+            logger.info(f"서비스: {log_data.get('service')}")
+            logger.info(f"경로: {log_data.get('path')}")
+            logger.info(f"데이터 크기: {log_data.get('data_size')} bytes")
+            logger.info(f"타임스탬프: {log_data.get('timestamp')}")
+            logger.info(f"소스: {log_data.get('source')}")
+            
+            return {"status": "success", "message": "로그 수신 완료"}
+        else:
+            logger.warning("빈 로그 데이터 수신")
+            return {"status": "warning", "message": "빈 로그 데이터"}
+            
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON 파싱 오류: {str(e)}")
+        raise HTTPException(status_code=400, detail="잘못된 JSON 형식")
+    except Exception as e:
+        logger.error(f"로그 처리 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail="로그 처리 중 오류 발생")
+
+@auth_router.get("/logs", summary="로그 조회")
+async def get_logs():
+    """
+    저장된 로그를 조회합니다. (현재는 간단한 상태만 반환)
+    """
+    return {
+        "status": "success",
+        "message": "로그 조회 기능 준비됨",
+        "timestamp": datetime.now().isoformat()
+    }
