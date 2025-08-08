@@ -234,7 +234,7 @@ export default function Home() {
       }
 
       // 사용자 메시지를 먼저 추가
-      setMessages((prev: ChatMessage[]) => [...prev, userMessage])
+      setMessages((prev) => [...prev, userMessage])
       
       // Gateway API로 사용자 입력 전송
       const userInputJSON = createUserInputJSON(inputValue)
@@ -257,7 +257,7 @@ export default function Home() {
       }
 
       // AI 응답 메시지 추가
-      setMessages((prev: ChatMessage[]) => [...prev, assistantReply])
+      setMessages((prev) => [...prev, assistantReply])
       setInputValue('')
       
     } catch (err: any) {
@@ -273,7 +273,7 @@ export default function Home() {
         timestamp: new Date().toISOString()
       }
       
-      setMessages((prev: ChatMessage[]) => [...prev, assistantReply])
+      setMessages((prev) => [...prev, assistantReply])
       setError(err.response?.data?.detail || '입력 처리 중 오류가 발생했습니다.')
       console.error('Error processing input:', err)
     } finally {
@@ -283,24 +283,24 @@ export default function Home() {
 
   // 채팅 화면 렌더링 (ChatGPT 스타일)
   const renderChatForm = () => (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* 헤더 - 우측 상단에 로그인/회원가입 버튼 */}
-      <header className="flex justify-between items-center p-4 border-b border-gray-200 bg-white">
+      <header className="flex justify-between items-center p-6 border-b border-gray-200 bg-white shadow-sm">
         <div className="flex items-center">
-          <h1 className="text-xl font-semibold text-gray-800">GreenSteel</h1>
+          <h1 className="text-2xl font-bold text-gray-800">GreenSteel</h1>
         </div>
         <div className="flex items-center space-x-4">
           {!isLoggedIn ? (
             <>
               <button
                 onClick={() => setCurrentView('login')}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+                className="px-6 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors duration-200"
               >
                 로그인
               </button>
               <button
                 onClick={() => setCurrentView('signup')}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+                className="px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 font-medium transition-colors duration-200 shadow-md hover:shadow-lg"
               >
                 회원가입
               </button>
@@ -313,7 +313,7 @@ export default function Home() {
                   setIsLoggedIn(false);
                   setCurrentView('login');
                 }}
-                className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700"
+                className="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 transition-colors duration-200"
               >
                 로그아웃
               </button>
@@ -323,16 +323,27 @@ export default function Home() {
       </header>
 
       {/* 메인 채팅 영역 */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full">
         {/* 채팅 메시지 출력 영역 */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-700 mb-2">GreenSteel AI와 대화를 시작하세요</h3>
+              <p className="text-gray-500 max-w-md">환경 친화적인 제철 기술에 대해 질문하거나 대화를 나누어보세요.</p>
+            </div>
+          )}
           {messages.length > 0 && messages.map((msg: ChatMessage) => (
             <div
               key={msg.id}
               className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-2xl px-4 py-3 rounded-xl text-sm ${
+                className={`max-w-3xl px-6 py-4 rounded-2xl text-sm shadow-sm ${
                   msg.type === 'user'
                     ? 'bg-green-600 text-white'
                     : 'bg-white border border-gray-200 text-gray-800'
@@ -345,23 +356,23 @@ export default function Home() {
         </div>
 
         {/* 입력창 */}
-        <div className="border-t border-gray-200 bg-white p-4">
+        <div className="border-t border-gray-200 bg-white p-6">
           <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
-            <div className="flex bg-white border border-gray-300 rounded-xl p-4 shadow-sm">
+            <div className="flex bg-white border-2 border-gray-200 rounded-2xl p-4 shadow-lg hover:shadow-xl transition-shadow duration-200 focus-within:border-green-500 focus-within:shadow-xl">
               <input
                 type="text"
                 value={inputValue}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInputValue(e.target.value)}
                 placeholder="메시지를 입력하세요..."
-                className="flex-1 bg-transparent text-gray-800 outline-none placeholder-gray-400"
+                className="flex-1 bg-transparent text-gray-800 outline-none placeholder-gray-400 text-base"
                 disabled={isSubmitting}
               />
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="ml-4 text-green-600 hover:text-green-700 disabled:opacity-50"
+                className="ml-4 p-2 text-green-600 hover:text-green-700 disabled:opacity-50 transition-colors duration-200 rounded-full hover:bg-green-50"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
               </button>
@@ -374,18 +385,21 @@ export default function Home() {
 
   // 로그인 화면 렌더링
   const renderLoginForm = () => (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          로그인
-        </h2>
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">GreenSteel</h1>
+          <h2 className="text-2xl font-semibold text-gray-700">
+            로그인
+          </h2>
+        </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white py-8 px-6 shadow-xl rounded-2xl sm:px-10">
           <form className="space-y-6" onSubmit={handleLoginSubmit}>
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
                 이메일
               </label>
               <div className="mt-1">
@@ -396,14 +410,14 @@ export default function Home() {
                   required
                   value={loginData.username}
                   onChange={handleLoginChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                  className="appearance-none block w-full px-4 py-3 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base transition-all duration-200"
                   placeholder="이메일을 입력하세요"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 비밀번호
               </label>
               <div className="mt-1">
@@ -414,25 +428,25 @@ export default function Home() {
                   required
                   value={loginData.password}
                   onChange={handleLoginChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                  className="appearance-none block w-full px-4 py-3 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base transition-all duration-200"
                   placeholder="비밀번호를 입력하세요"
                 />
               </div>
             </div>
 
             {authError && (
-              <div className="text-red-600 text-sm">{authError}</div>
+              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">{authError}</div>
             )}
 
             {authSuccess && (
-              <div className="text-green-600 text-sm">{authSuccess}</div>
+              <div className="text-green-600 text-sm bg-green-50 p-3 rounded-lg">{authSuccess}</div>
             )}
 
             <div>
               <button
                 type="submit"
                 disabled={authLoading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-lg text-base font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-all duration-200"
               >
                 {authLoading ? '로그인 중...' : '로그인'}
               </button>
@@ -442,7 +456,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setCurrentView('signup')}
-                className="text-sm text-green-600 hover:text-green-500"
+                className="text-sm text-green-600 hover:text-green-500 transition-colors duration-200"
               >
                 계정이 없으신가요? 회원가입
               </button>
@@ -455,18 +469,21 @@ export default function Home() {
 
   // 회원가입 화면 렌더링
   const renderSignupForm = () => (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          회원가입
-        </h2>
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">GreenSteel</h1>
+          <h2 className="text-2xl font-semibold text-gray-700">
+            회원가입
+          </h2>
+        </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white py-8 px-6 shadow-xl rounded-2xl sm:px-10">
           <form className="space-y-6" onSubmit={handleSignupSubmit}>
             <div>
-              <label htmlFor="signup-username" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="signup-username" className="block text-sm font-medium text-gray-700 mb-2">
                 이메일
               </label>
               <div className="mt-1">
@@ -477,14 +494,14 @@ export default function Home() {
                   required
                   value={signupData.username}
                   onChange={handleSignupChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                  className="appearance-none block w-full px-4 py-3 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base transition-all duration-200"
                   placeholder="이메일을 입력하세요"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="signup-password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="signup-password" className="block text-sm font-medium text-gray-700 mb-2">
                 비밀번호
               </label>
               <div className="mt-1">
@@ -495,25 +512,25 @@ export default function Home() {
                   required
                   value={signupData.password}
                   onChange={handleSignupChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                  className="appearance-none block w-full px-4 py-3 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base transition-all duration-200"
                   placeholder="비밀번호를 입력하세요"
                 />
               </div>
             </div>
 
             {authError && (
-              <div className="text-red-600 text-sm">{authError}</div>
+              <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">{authError}</div>
             )}
 
             {authSuccess && (
-              <div className="text-green-600 text-sm">{authSuccess}</div>
+              <div className="text-green-600 text-sm bg-green-50 p-3 rounded-lg">{authSuccess}</div>
             )}
 
             <div>
               <button
                 type="submit"
                 disabled={authLoading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-lg text-base font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-all duration-200"
               >
                 {authLoading ? '회원가입 중...' : '회원가입'}
               </button>
@@ -523,7 +540,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setCurrentView('login')}
-                className="text-sm text-green-600 hover:text-green-500"
+                className="text-sm text-green-600 hover:text-green-500 transition-colors duration-200"
               >
                 이미 계정이 있으신가요? 로그인
               </button>
