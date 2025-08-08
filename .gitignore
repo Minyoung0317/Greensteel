@@ -62,3 +62,4 @@ Thumbs.db
 # DART documents
 dart_documents/
 dart_documents/extracted/  
+.vercel

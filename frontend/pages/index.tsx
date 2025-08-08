@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react'
-import Head from 'next/head'
+import React, { useState } from 'react'
 import { useRouter } from 'next/router'
 import axios from 'axios'
 
@@ -58,23 +57,20 @@ interface SignupData {
 
 export default function Home() {
   const router = useRouter()
-  const [status, setStatus] = useState<GatewayStatus | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [lastResponse, setLastResponse] = useState<UserInputResponse | null>(null)
+  const [error, setError] = useState('')
+  const [gatewayStatus, setGatewayStatus] = useState<GatewayStatus | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
-  
-  // 로그인/회원가입 상태
   const [currentView, setCurrentView] = useState<'chat' | 'login' | 'signup'>('chat')
-  const [loginData, setLoginData] = useState<LoginData>({ username: '', password: '' })
-  const [signupData, setSignupData] = useState<SignupData>({ username: '', password: '' })
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [loginData, setLoginData] = useState({ username: '', password: '' })
+  const [signupData, setSignupData] = useState({ username: '', password: '' })
   const [authLoading, setAuthLoading] = useState(false)
   const [authError, setAuthError] = useState('')
   const [authSuccess, setAuthSuccess] = useState('')
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [lastResponse, setLastResponse] = useState<UserInputResponse | null>(null)
+  const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
 
   const createUserInputJSON = (message: string): UserInputData => {
     return {
@@ -85,21 +81,21 @@ export default function Home() {
   // 로그인 핸들러
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setLoginData((prev) => ({
-      ...prev,
-      [name]: value
-    }));
+    if (name === 'username' || name === 'password') {
+      setLoginData({
+        ...loginData,
+        [name]: value
+      });
+    }
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // JSON 형태로 alert 창 표시
     const userData = {
       username: loginData.username,
       password: loginData.password
     };
-    alert(JSON.stringify(userData, null, 2));
     
     setAuthLoading(true);
     setAuthError('');
@@ -109,38 +105,32 @@ export default function Home() {
       console.log('=== 로그인 API 요청 ===');
       console.log('요청 데이터:', JSON.stringify(userData, null, 2));
       
-      // 백엔드 API와 맞춰서 email로 변경
       const apiRequestData = {
         email: loginData.username,
         password: loginData.password
       };
       
-      // Gateway API 호출
       const response = await axios.post('http://localhost:8080/api/v1/user/login', apiRequestData);
       
       console.log('=== 로그인 API 응답 ===');
       console.log('응답 상태:', response.status);
       console.log('응답 데이터:', JSON.stringify(response.data, null, 2));
-      console.log('========================');
       
       setAuthSuccess(response.data.message || '로그인 성공!');
       setIsLoggedIn(true);
       setCurrentView('chat');
       
-      // 폼 초기화
       setLoginData({
         username: '',
         password: ''
       });
 
-      // 페이지 이동 (예: /page.tsx로 이동)
       router.push('/page');
 
     } catch (err: any) {
       console.log('=== 로그인 API 오류 ===');
       console.log('오류 상태:', err.response?.status);
       console.log('오류 데이터:', JSON.stringify(err.response?.data, null, 2));
-      console.log('========================');
       
       const errorMessage = err.response?.data?.detail || '로그인 중 오류가 발생했습니다.';
       setAuthError(errorMessage);
@@ -153,21 +143,21 @@ export default function Home() {
   // 회원가입 핸들러
   const handleSignupChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setSignupData((prev) => ({
-      ...prev,
-      [name]: value
-    }));
+    if (name === 'username' || name === 'password') {
+      setSignupData({
+        ...signupData,
+        [name]: value
+      });
+    }
   };
 
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // JSON 형태로 alert 창 표시
     const signupUserData = {
       username: signupData.username,
       password: signupData.password
     };
-    alert(JSON.stringify(signupUserData, null, 2));
     
     setAuthLoading(true);
     setAuthError('');
@@ -177,23 +167,20 @@ export default function Home() {
       console.log('=== 회원가입 API 요청 ===');
       console.log('요청 데이터:', JSON.stringify(signupUserData, null, 2));
       
-      // 백엔드 API와 맞춰서 email로 변경
       const apiRequestData = {
         email: signupData.username,
         password: signupData.password
       };
       
-      // Gateway API 호출
       const response = await axios.post('http://localhost:8080/api/v1/user/signup', apiRequestData);
       
       console.log('=== 회원가입 API 응답 ===');
       console.log('응답 상태:', response.status);
       console.log('응답 데이터:', JSON.stringify(response.data, null, 2));
-      console.log('========================');
       
-      setAuthSuccess(response.data.message || '회원가입이 완료되었습니다!');
+      setAuthSuccess(response.data.message || '회원가입 성공!');
+      setCurrentView('login');
       
-      // 폼 초기화
       setSignupData({
         username: '',
         password: ''
@@ -203,7 +190,6 @@ export default function Home() {
       console.log('=== 회원가입 API 오류 ===');
       console.log('오류 상태:', err.response?.status);
       console.log('오류 데이터:', JSON.stringify(err.response?.data, null, 2));
-      console.log('========================');
       
       const errorMessage = err.response?.data?.detail || '회원가입 중 오류가 발생했습니다.';
       setAuthError(errorMessage);
@@ -215,28 +201,28 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
+    
     if (!inputValue.trim()) return
-
+    
+    setIsSubmitting(true)
+    setError('')
+    
     try {
-      setIsSubmitting(true)
-      setError(null)
-
       const userMessage: ChatMessage = {
         id: Date.now().toString(),
         type: 'user',
-        content: inputValue.trim(),
+        content: inputValue,
         timestamp: new Date().toISOString()
       }
 
       const assistantReply: ChatMessage = {
-        id: `${Date.now()}-ai`,
+        id: (Date.now() + 1).toString(),
         type: 'assistant',
         content: `AI 응답: ${inputValue.trim()}에 대해 생각해볼게요.`,
         timestamp: new Date().toISOString()
       }
 
-      setMessages((prev) => [...prev, userMessage, assistantReply])
+      setMessages([...messages, userMessage, assistantReply])
       const userInputJSON = createUserInputJSON(inputValue)
       console.log('사용자 입력 JSON:', JSON.stringify(userInputJSON, null, 2))
       setInputValue('')
@@ -248,8 +234,6 @@ export default function Home() {
       setIsSubmitting(false)
     }
   }
-
-
 
   // 채팅 화면 렌더링 (ChatGPT 스타일)
   const renderChatForm = () => (
@@ -339,174 +323,177 @@ export default function Home() {
           </form>
         </div>
       </div>
-
-      {/* 에러 메시지 */}
-      {error && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
-          <div className="bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg">
-            <p className="text-sm">{error}</p>
-          </div>
-        </div>
-      )}
     </div>
-  );
+  )
 
-  return (
-    <>
-      <Head>
-        <title>GreenSteel - AI Assistant</title>
-        <meta name="description" content="AI Assistant Interface" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-      
-      {currentView === 'chat' && renderChatForm()}
-      
-      {/* 로그인 모달 */}
-      {currentView === 'login' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">로그인</h2>
-              <button
-                onClick={() => setCurrentView('chat')}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <form onSubmit={handleLoginSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-                  사용자명
-                </label>
+  // 로그인 화면 렌더링
+  const renderLoginForm = () => (
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          로그인
+        </h2>
+      </div>
+
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          <form className="space-y-6" onSubmit={handleLoginSubmit}>
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                이메일
+              </label>
+              <div className="mt-1">
                 <input
                   id="username"
                   name="username"
-                  type="text"
+                  type="email"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  placeholder="사용자명을 입력하세요"
                   value={loginData.username}
                   onChange={handleLoginChange}
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                  placeholder="이메일을 입력하세요"
                 />
               </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                  비밀번호
-                </label>
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                비밀번호
+              </label>
+              <div className="mt-1">
                 <input
                   id="password"
                   name="password"
                   type="password"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  placeholder="비밀번호"
                   value={loginData.password}
                   onChange={handleLoginChange}
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                  placeholder="비밀번호를 입력하세요"
                 />
               </div>
-              {authError && (
-                <div className="text-red-500 text-sm">{authError}</div>
-              )}
-              {authSuccess && (
-                <div className="text-green-500 text-sm">{authSuccess}</div>
-              )}
+            </div>
+
+            {authError && (
+              <div className="text-red-600 text-sm">{authError}</div>
+            )}
+
+            {authSuccess && (
+              <div className="text-green-600 text-sm">{authSuccess}</div>
+            )}
+
+            <div>
               <button
                 type="submit"
                 disabled={authLoading}
-                className="w-full py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50"
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
               >
                 {authLoading ? '로그인 중...' : '로그인'}
               </button>
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => setCurrentView('signup')}
-                  className="text-green-600 hover:text-green-700 text-sm"
-                >
-                  계정이 없으신가요? 회원가입
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      
-      {/* 회원가입 모달 */}
-      {currentView === 'signup' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">회원가입</h2>
+            </div>
+
+            <div className="text-center">
               <button
-                onClick={() => setCurrentView('chat')}
-                className="text-gray-400 hover:text-gray-600"
+                type="button"
+                onClick={() => setCurrentView('signup')}
+                className="text-sm text-green-600 hover:text-green-500"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                계정이 없으신가요? 회원가입
               </button>
             </div>
-            <form onSubmit={handleSignupSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-                  사용자명 *
-                </label>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+
+  // 회원가입 화면 렌더링
+  const renderSignupForm = () => (
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          회원가입
+        </h2>
+      </div>
+
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          <form className="space-y-6" onSubmit={handleSignupSubmit}>
+            <div>
+              <label htmlFor="signup-username" className="block text-sm font-medium text-gray-700">
+                이메일
+              </label>
+              <div className="mt-1">
                 <input
-                  id="username"
+                  id="signup-username"
                   name="username"
-                  type="text"
+                  type="email"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  placeholder="사용자명을 입력하세요"
                   value={signupData.username}
                   onChange={handleSignupChange}
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                  placeholder="이메일을 입력하세요"
                 />
               </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                  비밀번호 *
-                </label>
+            </div>
+
+            <div>
+              <label htmlFor="signup-password" className="block text-sm font-medium text-gray-700">
+                비밀번호
+              </label>
+              <div className="mt-1">
                 <input
-                  id="password"
+                  id="signup-password"
                   name="password"
                   type="password"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  placeholder="비밀번호를 입력하세요"
                   value={signupData.password}
                   onChange={handleSignupChange}
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                  placeholder="비밀번호를 입력하세요"
                 />
               </div>
-              {authError && (
-                <div className="text-red-500 text-sm">{authError}</div>
-              )}
-              {authSuccess && (
-                <div className="text-green-500 text-sm">{authSuccess}</div>
-              )}
+            </div>
+
+            {authError && (
+              <div className="text-red-600 text-sm">{authError}</div>
+            )}
+
+            {authSuccess && (
+              <div className="text-green-600 text-sm">{authSuccess}</div>
+            )}
+
+            <div>
               <button
                 type="submit"
                 disabled={authLoading}
-                className="w-full py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50"
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
               >
-                {authLoading ? '처리 중...' : '회원가입'}
+                {authLoading ? '회원가입 중...' : '회원가입'}
               </button>
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => setCurrentView('login')}
-                  className="text-green-600 hover:text-green-700 text-sm"
-                >
-                  이미 계정이 있으신가요? 로그인
-                </button>
-              </div>
-            </form>
-          </div>
+            </div>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setCurrentView('login')}
+                className="text-sm text-green-600 hover:text-green-500"
+              >
+                이미 계정이 있으신가요? 로그인
+              </button>
+            </div>
+          </form>
         </div>
-      )}
-    </>
+      </div>
+    </div>
   )
-} 
+
+  // 메인 렌더링
+  return (
+    <div>
+      {currentView === 'chat' && renderChatForm()}
+      {currentView === 'login' && renderLoginForm()}
+      {currentView === 'signup' && renderSignupForm()}
+    </div>
+  )
+}
