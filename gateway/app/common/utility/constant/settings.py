@@ -22,3 +22,4 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
+        extra = "allow"  # 추가 필드 허용
