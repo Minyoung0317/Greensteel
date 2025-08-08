@@ -9,7 +9,6 @@ import sys
 import uvicorn
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
-from fastapi import Request
 
 from app.router.auth_router import auth_router
 from app.router.user_router import router as user_router
