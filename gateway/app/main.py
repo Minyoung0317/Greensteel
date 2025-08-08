@@ -12,6 +12,7 @@ from fastapi import Request
 
 from app.router.auth_router import auth_router
 from app.router.user_router import router as user_router
+from app.router.chatbot_router import router as chatbot_router
 from app.www.google.jwt_auth_middleware import AuthMiddleware
 from app.domain.discovery.model.service_discovery import ServiceDiscovery
 from app.domain.discovery.model.service_type import ServiceType
@@ -72,6 +73,7 @@ async def root():
 gateway_router = APIRouter(prefix="/api/v1", tags=["Gateway API"])
 gateway_router.include_router(auth_router)
 gateway_router.include_router(user_router)
+gateway_router.include_router(chatbot_router)
 app.include_router(gateway_router)
 
 # 🪡🪡🪡 파일이 필요한 서비스 목록 (현재는 없음)
@@ -184,6 +186,7 @@ async def not_found_handler(request: Request, exc):
 # 기본 루트 경로
 @app.get("/")
 async def root():
+    logger.info("🌈 Gateway API 서비스 시작")
     return {"message": "Gateway API", "version": "0.1.0"}
 
 # ✅ 서버 실행

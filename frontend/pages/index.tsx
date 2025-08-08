@@ -125,8 +125,6 @@ export default function Home() {
         password: ''
       });
 
-      router.push('/page');
-
     } catch (err: any) {
       console.log('=== 로그인 API 오류 ===');
       console.log('오류 상태:', err.response?.status);
@@ -215,20 +213,47 @@ export default function Home() {
         timestamp: new Date().toISOString()
       }
 
+      // 사용자 메시지를 먼저 추가
+      setMessages(prev => [...prev, userMessage])
+      
+      // Gateway API로 사용자 입력 전송
+      const userInputJSON = createUserInputJSON(inputValue)
+      console.log('=== 사용자 입력 API 요청 ===')
+      console.log('요청 데이터:', JSON.stringify(userInputJSON, null, 2))
+      
+      const response = await axios.post('http://localhost:8080/api/v1/chatbot/process', userInputJSON)
+      
+      console.log('=== 사용자 입력 API 응답 ===')
+      console.log('응답 상태:', response.status)
+      console.log('응답 데이터:', JSON.stringify(response.data, null, 2))
+      
+      // AI 응답 메시지 생성
       const assistantReply: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: `AI 응답: ${inputValue.trim()}에 대해 생각해볼게요.`,
+        content: response.data.response || `AI 응답: ${inputValue.trim()}에 대해 처리되었습니다.`,
         timestamp: new Date().toISOString()
       }
 
-      setMessages([...messages, userMessage, assistantReply])
-      const userInputJSON = createUserInputJSON(inputValue)
-      console.log('사용자 입력 JSON:', JSON.stringify(userInputJSON, null, 2))
+      // AI 응답 메시지 추가
+      setMessages(prev => [...prev, assistantReply])
       setInputValue('')
-    } catch (err: unknown) {
-      const apiError = err as ApiError
-      setError(apiError.message || '입력 처리 중 오류가 발생했습니다.')
+      
+    } catch (err: any) {
+      console.log('=== 사용자 입력 API 오류 ===')
+      console.log('오류 상태:', err.response?.status)
+      console.log('오류 데이터:', JSON.stringify(err.response?.data, null, 2))
+      
+      // 오류 발생 시에도 AI 응답 메시지 생성
+      const assistantReply: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: '죄송합니다. 요청을 처리하는 중 오류가 발생했습니다.',
+        timestamp: new Date().toISOString()
+      }
+      
+      setMessages(prev => [...prev, assistantReply])
+      setError(err.response?.data?.detail || '입력 처리 중 오류가 발생했습니다.')
       console.error('Error processing input:', err)
     } finally {
       setIsSubmitting(false)

@@ -43,6 +43,19 @@ services:
     networks:
       - app-network
 
+  auth-service:
+    build: ./service/auth-service
+    ports:
+      - "8005:8003"
+    volumes:
+      - ./service/auth-service:/app
+    env_file:
+      - ./service/auth-service/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - app-network
+
   report-service:
     build: ./service/report-service/app
     ports:
@@ -74,6 +87,7 @@ services:
       - cbam-service
       - chatbot-service
       - lca-service
+      - auth-service
       - report-service
       - redis
     dns:
