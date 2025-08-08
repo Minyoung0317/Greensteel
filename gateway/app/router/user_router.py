@@ -128,6 +128,7 @@ async def login(request: LoginRequest):
         print("=" * 60)
         print("🔄 === Auth Service로 데이터 전달 ===")
         print("=" * 60)
+        print(f"🕐 현재 시간: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
         print("📤 전달할 데이터:", json.dumps(request.dict(), indent=2, ensure_ascii=False))
         print("🌐 Auth Service URL: http://auth-service:8005/auth/login")
         print("=" * 60)
