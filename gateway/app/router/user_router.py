@@ -8,9 +8,8 @@ from datetime import datetime
 router = APIRouter(prefix="/user", tags=["User Management"])
 
 class SignupRequest(BaseModel):
-    name: str
-    unit: str
-    method: str
+    email: str
+    password: str
 
 class LoginRequest(BaseModel):
     email: str
@@ -40,9 +39,8 @@ async def signup(request: SignupRequest):
         signup_data = {
             "timestamp": datetime.now().isoformat(),
             "userData": {
-                "name": request.name,
-                "unit": request.unit,
-                "method": request.method
+                "email": request.email,
+                "password": request.password
             }
         }
         

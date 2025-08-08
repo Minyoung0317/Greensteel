@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Head from 'next/head'
+import { useRouter } from 'next/router'
 import axios from 'axios'
 
 interface GatewayStatus {
@@ -46,17 +47,17 @@ interface ChatMessage {
 }
 
 interface LoginData {
-  email: string
+  username: string
   password: string
 }
 
 interface SignupData {
-  name: string
-  unit: string
-  method: string
+  username: string
+  password: string
 }
 
 export default function Home() {
+  const router = useRouter()
   const [status, setStatus] = useState<GatewayStatus | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,8 +69,8 @@ export default function Home() {
   
   // 로그인/회원가입 상태
   const [currentView, setCurrentView] = useState<'chat' | 'login' | 'signup'>('chat')
-  const [loginData, setLoginData] = useState<LoginData>({ email: '', password: '' })
-  const [signupData, setSignupData] = useState<SignupData>({ name: '', unit: '', method: '' })
+  const [loginData, setLoginData] = useState<LoginData>({ username: '', password: '' })
+  const [signupData, setSignupData] = useState<SignupData>({ username: '', password: '' })
   const [authLoading, setAuthLoading] = useState(false)
   const [authError, setAuthError] = useState('')
   const [authSuccess, setAuthSuccess] = useState('')
@@ -92,16 +93,34 @@ export default function Home() {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // JSON 형태로 alert 창 표시
+    const userData = {
+      username: loginData.username,
+      password: loginData.password
+    };
+    alert(JSON.stringify(userData, null, 2));
+    
     setAuthLoading(true);
     setAuthError('');
     setAuthSuccess('');
 
     try {
+      console.log('=== 로그인 API 요청 ===');
+      console.log('요청 데이터:', JSON.stringify(userData, null, 2));
+      
+      // 백엔드 API와 맞춰서 email로 변경
+      const apiRequestData = {
+        email: loginData.username,
+        password: loginData.password
+      };
+      
       // Gateway API 호출
-      const response = await axios.post('http://localhost:8080/api/v1/user/login', loginData);
+      const response = await axios.post('http://localhost:8080/api/v1/user/login', apiRequestData);
       
       console.log('=== 로그인 API 응답 ===');
-      console.log('응답 데이터:', response.data);
+      console.log('응답 상태:', response.status);
+      console.log('응답 데이터:', JSON.stringify(response.data, null, 2));
       console.log('========================');
       
       setAuthSuccess(response.data.message || '로그인 성공!');
@@ -110,11 +129,19 @@ export default function Home() {
       
       // 폼 초기화
       setLoginData({
-        email: '',
+        username: '',
         password: ''
       });
 
+      // 페이지 이동 (예: /page.tsx로 이동)
+      router.push('/page');
+
     } catch (err: any) {
+      console.log('=== 로그인 API 오류 ===');
+      console.log('오류 상태:', err.response?.status);
+      console.log('오류 데이터:', JSON.stringify(err.response?.data, null, 2));
+      console.log('========================');
+      
       const errorMessage = err.response?.data?.detail || '로그인 중 오류가 발생했습니다.';
       setAuthError(errorMessage);
       console.error('Login error:', err);
@@ -124,7 +151,7 @@ export default function Home() {
   };
 
   // 회원가입 핸들러
-  const handleSignupChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleSignupChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setSignupData((prev) => ({
       ...prev,
@@ -134,28 +161,50 @@ export default function Home() {
 
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // JSON 형태로 alert 창 표시
+    const signupUserData = {
+      username: signupData.username,
+      password: signupData.password
+    };
+    alert(JSON.stringify(signupUserData, null, 2));
+    
     setAuthLoading(true);
     setAuthError('');
     setAuthSuccess('');
 
     try {
+      console.log('=== 회원가입 API 요청 ===');
+      console.log('요청 데이터:', JSON.stringify(signupUserData, null, 2));
+      
+      // 백엔드 API와 맞춰서 email로 변경
+      const apiRequestData = {
+        email: signupData.username,
+        password: signupData.password
+      };
+      
       // Gateway API 호출
-      const response = await axios.post('http://localhost:8080/api/v1/user/signup', signupData);
+      const response = await axios.post('http://localhost:8080/api/v1/user/signup', apiRequestData);
       
       console.log('=== 회원가입 API 응답 ===');
-      console.log('응답 데이터:', response.data);
+      console.log('응답 상태:', response.status);
+      console.log('응답 데이터:', JSON.stringify(response.data, null, 2));
       console.log('========================');
       
       setAuthSuccess(response.data.message || '회원가입이 완료되었습니다!');
       
       // 폼 초기화
       setSignupData({
-        name: '',
-        unit: '',
-        method: ''
+        username: '',
+        password: ''
       });
 
     } catch (err: any) {
+      console.log('=== 회원가입 API 오류 ===');
+      console.log('오류 상태:', err.response?.status);
+      console.log('오류 데이터:', JSON.stringify(err.response?.data, null, 2));
+      console.log('========================');
+      
       const errorMessage = err.response?.data?.detail || '회원가입 중 오류가 발생했습니다.';
       setAuthError(errorMessage);
       console.error('Signup error:', err);
@@ -330,17 +379,17 @@ export default function Home() {
             </div>
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                  이메일
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+                  사용자명
                 </label>
                 <input
-                  id="email"
-                  name="email"
-                  type="email"
+                  id="username"
+                  name="username"
+                  type="text"
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  placeholder="이메일 주소"
-                  value={loginData.email}
+                  placeholder="사용자명을 입력하세요"
+                  value={loginData.username}
                   onChange={handleLoginChange}
                 />
               </div>
@@ -403,45 +452,32 @@ export default function Home() {
             </div>
             <form onSubmit={handleSignupSubmit} className="space-y-4">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                  이름 *
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+                  사용자명 *
                 </label>
                 <input
-                  id="name"
-                  name="name"
+                  id="username"
+                  name="username"
                   type="text"
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  placeholder="이름을 입력하세요"
-                  value={signupData.name}
+                  placeholder="사용자명을 입력하세요"
+                  value={signupData.username}
                   onChange={handleSignupChange}
                 />
               </div>
               <div>
-                <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">
-                  단위
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                  비밀번호 *
                 </label>
                 <input
-                  id="unit"
-                  name="unit"
-                  type="text"
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  placeholder="단위를 입력하세요"
-                  value={signupData.unit}
-                  onChange={handleSignupChange}
-                />
-              </div>
-              <div>
-                <label htmlFor="method" className="block text-sm font-medium text-gray-700 mb-1">
-                  방법
-                </label>
-                <textarea
-                  id="method"
-                  name="method"
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  placeholder="방법을 입력하세요"
-                  value={signupData.method}
+                  placeholder="비밀번호를 입력하세요"
+                  value={signupData.password}
                   onChange={handleSignupChange}
                 />
               </div>
