@@ -1,0 +1,99 @@
+name: greensteel
+
+services:
+  cbam-service:
+    build: ./service/cbam-service/app
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./service/cbam-service/app:/app/app
+      - ./service/cbam-service/app/requirements.txt:/app/requirements.txt
+    env_file:
+      - ./service/cbam-service/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - app-network
+
+  chatbot-service:
+    build: ./service/chatbot-service/app
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./service/chatbot-service/app:/app/app
+      - ./service/chatbot-service/app/requirements.txt:/app/requirements.txt
+    env_file:
+      - ./service/chatbot-service/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - app-network
+
+  lca-service:
+    build: ./service/lca-service/app
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./service/lca-service/app:/app/app
+      - ./service/lca-service/app/requirements.txt:/app/requirements.txt
+    env_file:
+      - ./service/lca-service/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - app-network
+
+  report-service:
+    build: ./service/report-service/app
+    ports:
+      - "8004:8004"
+    volumes:
+      - ./service/report-service/app:/app/app
+      - ./service/report-service/app/requirements.txt:/app/requirements.txt
+    env_file:
+      - ./service/report-service/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: always
+    networks:
+      - app-network
+
+  gateway:
+    build: ./gateway
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./gateway:/app
+      - ./frontend:/app/frontend
+    env_file:
+      - ./gateway/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: always
+    depends_on:
+      - cbam-service
+      - chatbot-service
+      - lca-service
+      - report-service
+      - redis
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+    restart: always
+
+networks:
+  app-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
