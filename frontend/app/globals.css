@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* 전체 페이지 폰트 및 색상 */
+  body {
+    @apply bg-gray-100 text-gray-900;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  }
+}
+
+@layer components {
+  /* 입력 필드 focus 스타일 */
+  input:focus {
+    @apply outline-none ring-2 ring-green-400;
+  }
+
+  /* 버튼 focus 스타일 */
+  button:focus {
+    @apply outline-none ring-2 ring-green-400;
+  }
+
+  /* 기본 링크 스타일 */
+  a {
+    @apply text-green-600 hover:underline;
+  }
+}

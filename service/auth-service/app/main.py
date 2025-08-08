@@ -9,6 +9,7 @@ import os
 import sys
 import json
 from datetime import datetime
+import pytz
 
 from app.router.user_router import auth_router
 
@@ -55,6 +56,11 @@ class LoginResponse(BaseModel):
     timestamp: str
     user_data: dict
 
+def get_current_time():
+    """현재 시간을 한국 시간으로 반환"""
+    korea_tz = pytz.timezone('Asia/Seoul')
+    return datetime.now(korea_tz)
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     logger.info(f"📥 요청: {request.method} {request.url.path} (클라이언트: {request.client.host})")
@@ -73,6 +79,8 @@ async def login(request: LoginRequest):
     로그인 처리 - Gateway에서 전달받은 사용자 데이터 처리
     """
     try:
+        current_time = get_current_time()
+        
         logger.info("=== Auth Service 로그인 처리 시작 ===")
         logger.info(f"Gateway에서 전달받은 사용자 데이터: {request.dict()}")
         
@@ -80,6 +88,7 @@ async def login(request: LoginRequest):
         print("=" * 60)
         print("🔐 === Auth Service 로그인 데이터 로그 ===")
         print("=" * 60)
+        print(f"🕐 현재 시간: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
         print("📥 Gateway에서 전달받은 데이터:")
         print("사용자 입력 데이터:", request.dict())
         print("JSON 형태:", json.dumps(request.dict(), indent=2, ensure_ascii=False))
@@ -87,7 +96,7 @@ async def login(request: LoginRequest):
         
         # JSON 데이터 생성
         login_data = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": current_time.isoformat(),
             "userData": {
                 "email": request.email,
                 "password": request.password
@@ -102,14 +111,14 @@ async def login(request: LoginRequest):
         log_dir = "/app/logs"
         os.makedirs(log_dir, exist_ok=True)
         
-        log_file = os.path.join(log_dir, f"auth_login_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        log_file = os.path.join(log_dir, f"auth_login_{current_time.strftime('%Y%m%d_%H%M%S')}.json")
         with open(log_file, 'w', encoding='utf-8') as f:
             json.dump(login_data, f, indent=2, ensure_ascii=False)
         
         return LoginResponse(
             status="✅ success",
             message="✅ Auth Service에서 로그인 성공! Docker Desktop에서 로그를 확인하세요.",
-            timestamp=datetime.now().isoformat(),
+            timestamp=current_time.isoformat(),
             user_data=request.dict()
         )
         

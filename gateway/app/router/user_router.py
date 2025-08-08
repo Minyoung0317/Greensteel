@@ -5,6 +5,7 @@ import json
 import os
 import httpx
 from datetime import datetime
+import pytz
 
 router = APIRouter(prefix="/user", tags=["User Management"])
 
@@ -28,6 +29,11 @@ class LoginResponse(BaseModel):
     timestamp: str
     user_data: dict
 
+def get_current_time():
+    """현재 시간을 한국 시간으로 반환"""
+    korea_tz = pytz.timezone('Asia/Seoul')
+    return datetime.now(korea_tz)
+
 @router.post("/signup", response_model=SignupResponse)
 async def signup(request: SignupRequest):
     """
@@ -36,9 +42,11 @@ async def signup(request: SignupRequest):
     - Docker Desktop에서 로그 확인 가능
     """
     try:
+        current_time = get_current_time()
+        
         # JSON 데이터 생성
         signup_data = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": current_time.isoformat(),
             "userData": {
                 "email": request.email,
                 "password": request.password
@@ -47,6 +55,7 @@ async def signup(request: SignupRequest):
         
         # Docker Desktop에서 로그 확인을 위한 콘솔 출력
         print("=== 회원가입 데이터 로그 ===")
+        print(f"🕐 현재 시간: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
         print("사용자 입력 데이터:", request.dict())
         print("JSON 형태:", json.dumps(request.dict(), indent=2, ensure_ascii=False))
         print("==========================")
@@ -56,14 +65,14 @@ async def signup(request: SignupRequest):
         log_dir = "/app/logs"
         os.makedirs(log_dir, exist_ok=True)
         
-        log_file = os.path.join(log_dir, f"signup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        log_file = os.path.join(log_dir, f"signup_{current_time.strftime('%Y%m%d_%H%M%S')}.json")
         with open(log_file, 'w', encoding='utf-8') as f:
             json.dump(signup_data, f, indent=2, ensure_ascii=False)
         
         return SignupResponse(
             status="success",
             message="회원가입이 완료되었습니다! Docker Desktop에서 로그를 확인하세요.",
-            timestamp=datetime.now().isoformat(),
+            timestamp=current_time.isoformat(),
             user_data=request.dict()
         )
         
@@ -80,9 +89,11 @@ async def login(request: LoginRequest):
     - Docker Desktop에서 로그 확인 가능
     """
     try:
+        current_time = get_current_time()
+        
         # Gateway에서 로그 처리
         login_data = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": current_time.isoformat(),
             "userData": {
                 "email": request.email,
                 "password": request.password
@@ -93,6 +104,7 @@ async def login(request: LoginRequest):
         print("=" * 60)
         print("🚀 === Gateway 로그인 데이터 로그 ===")
         print("=" * 60)
+        print(f"🕐 현재 시간: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
         print("📥 사용자 입력 데이터:", request.dict())
         print("📄 JSON 형태:", json.dumps(request.dict(), indent=2, ensure_ascii=False))
         print("-" * 60)
@@ -103,7 +115,7 @@ async def login(request: LoginRequest):
         log_dir = "/app/logs"
         os.makedirs(log_dir, exist_ok=True)
         
-        log_file = os.path.join(log_dir, f"gateway_login_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        log_file = os.path.join(log_dir, f"gateway_login_{current_time.strftime('%Y%m%d_%H%M%S')}.json")
         with open(log_file, 'w', encoding='utf-8') as f:
             json.dump(login_data, f, indent=2, ensure_ascii=False)
         
@@ -112,7 +124,7 @@ async def login(request: LoginRequest):
         print("🔄 === Auth Service로 데이터 전달 ===")
         print("=" * 60)
         print("📤 전달할 데이터:", json.dumps(request.dict(), indent=2, ensure_ascii=False))
-        print("🌐 Auth Service URL: http://auth-service:8003/auth/login")
+        print("🌐 Auth Service URL: http://auth-service:8005/auth/login")
         print("=" * 60)
         
         async with httpx.AsyncClient() as client:
@@ -129,7 +141,7 @@ async def login(request: LoginRequest):
                 return LoginResponse(
                     status="success",
                     message="로그인 성공! Gateway와 Auth Service에서 로그를 확인하세요.",
-                    timestamp=datetime.now().isoformat(),
+                    timestamp=current_time.isoformat(),
                     user_data=request.dict()
                 )
             else:
