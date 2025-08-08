@@ -18,6 +18,7 @@ from app.domain.discovery.model.service_type import ServiceType
 from app.common.utility.constant.settings import Settings
 from app.common.utility.factory.response_factory import ResponseFactory
 
+# Railway 환경에서는 dotenv 로드하지 않음
 if os.getenv("RAILWAY_ENVIRONMENT") != "true":
     load_dotenv()
 
@@ -38,20 +39,24 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Gateway API",
-    description="Gateway API for http://ausikor.com",
+    description="Gateway API for GreenSteel",
     version="0.1.0",
     docs_url="/docs",
     lifespan=lifespan
 )
 
+# CORS 설정 업데이트 - Railway 도메인 추가
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",  # 로컬 접근
         "http://127.0.0.1:3000",  # 로컬 IP 접근
         "http://frontend:3000",   # Docker 내부 네트워크
-
-    ], # 프론트엔드 주소 명시
+        "https://greensteel-48kl4yapx-bagm922-7953s-projects.vercel.app",  # Vercel 프론트엔드
+        "https://www.minyoung.cloud",  # 커스텀 도메인
+        "https://minyoung.cloud",  # 커스텀 도메인
+        "*"  # 개발 중에는 모든 도메인 허용
+    ],
     allow_credentials=True,  # HttpOnly 쿠키 사용을 위해 필수
     allow_methods=["*"],
     allow_headers=["*"],
@@ -62,7 +67,7 @@ app.add_middleware(AuthMiddleware)
 # Frontend 정적 파일 서빙 (개발 모드에서는 Next.js dev server 사용)
 @app.get("/")
 async def root():
-    return {"message": "GreenSteel Gateway API", "docs": "/docs"}
+    return {"message": "GreenSteel Gateway API", "docs": "/docs", "status": "healthy"}
 
 gateway_router = APIRouter(prefix="/api/v1", tags=["Gateway API"])
 gateway_router.include_router(auth_router)
@@ -184,5 +189,5 @@ async def root():
 # ✅ 서버 실행
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("SERVICE_PORT", 8080))
+    port = int(os.getenv("PORT", os.getenv("SERVICE_PORT", 8080)))
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)

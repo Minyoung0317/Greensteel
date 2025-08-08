@@ -1,4 +1,5 @@
 import httpx
+import os
 from typing import Dict, Any, Optional
 from enum import Enum
 
@@ -11,11 +12,12 @@ class ServiceType(str, Enum):
 class ServiceDiscovery:
     def __init__(self, service_type: ServiceType):
         self.service_type = service_type
+        # Railway 환경에서는 환경변수에서 서비스 URL을 가져옴
         self.base_urls = {
-            ServiceType.CBAM: "http://cbam-service:8001",
-            ServiceType.CHATBOT: "http://chatbot-service:8002",
-            ServiceType.LCA: "http://lca-service:8003",
-            ServiceType.REPORT: "http://report-service:8004"
+            ServiceType.CBAM: os.getenv("CBAM_SERVICE_URL", "http://cbam-service:8001"),
+            ServiceType.CHATBOT: os.getenv("CHATBOT_SERVICE_URL", "http://chatbot-service:8002"),
+            ServiceType.LCA: os.getenv("LCA_SERVICE_URL", "http://lca-service:8003"),
+            ServiceType.REPORT: os.getenv("REPORT_SERVICE_URL", "http://report-service:8004")
         }
     
     async def request(
@@ -23,8 +25,10 @@ class ServiceDiscovery:
         method: str,
         path: str,
         headers: Optional[Dict[str, str]] = None,
-        data: Optional[Dict[str, Any]] = None,
-        files: Optional[Dict[str, Any]] = None
+        body: Optional[bytes] = None,
+        files: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None
     ):
         base_url = self.base_urls.get(self.service_type)
         if not base_url:
@@ -37,7 +41,9 @@ class ServiceDiscovery:
                 method=method,
                 url=url,
                 headers=headers,
-                data=data,
-                files=files
+                content=body,
+                files=files,
+                params=params,
+                data=data
             )
             return response

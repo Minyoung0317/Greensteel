@@ -6,6 +6,7 @@ on:
     paths:
       - 'gateway/**'
       - '.github/workflows/railway-deploy.yml'
+      - 'railway.json'
   pull_request:
     branches: [ main, master ]
     paths:
@@ -27,6 +28,6 @@ jobs:
       run: npm install -g @railway/cli
     
     - name: Deploy to Railway
-      run: railway up --service gateway
+      run: railway up --service gateway --detach
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
