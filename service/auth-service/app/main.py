@@ -73,14 +73,14 @@ async def login(request: LoginRequest):
         logger.info("=== Auth Service 로그인 처리 시작 ===")
         logger.info(f"Gateway에서 전달받은 사용자 데이터: {request.dict()}")
         
-        # Docker Desktop에서 로그 확인을 위한 콘솔 출력
-        print("=" * 50)
-        print("=== Auth Service 로그인 데이터 로그 ===")
-        print("=" * 50)
+        # Railway/Docker Desktop에서 로그 확인을 위한 콘솔 출력
+        print("=" * 60)
+        print("🔐 === Auth Service 로그인 데이터 로그 ===")
+        print("=" * 60)
         print("📥 Gateway에서 전달받은 데이터:")
         print("사용자 입력 데이터:", request.dict())
         print("JSON 형태:", json.dumps(request.dict(), indent=2, ensure_ascii=False))
-        print("-" * 50)
+        print("-" * 60)
         
         # JSON 데이터 생성
         login_data = {
@@ -93,7 +93,7 @@ async def login(request: LoginRequest):
         
         print("📝 Auth Service에서 생성한 로그인 데이터:")
         print("로그인 데이터:", json.dumps(login_data, indent=2, ensure_ascii=False))
-        print("=" * 50)
+        print("=" * 60)
         
         # JSON 파일로 저장 (선택사항)
         log_dir = "/app/logs"

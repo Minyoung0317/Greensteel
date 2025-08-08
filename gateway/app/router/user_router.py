@@ -89,12 +89,15 @@ async def login(request: LoginRequest):
             }
         }
         
-        # Docker Desktop에서 로그 확인을 위한 콘솔 출력
-        print("=== Gateway 로그인 데이터 로그 ===")
-        print("사용자 입력 데이터:", request.dict())
-        print("JSON 형태:", json.dumps(request.dict(), indent=2, ensure_ascii=False))
-        print("==========================")
-        print("로그인 데이터:", json.dumps(login_data, indent=2, ensure_ascii=False))
+        # Railway/Docker Desktop에서 로그 확인을 위한 콘솔 출력
+        print("=" * 60)
+        print("🚀 === Gateway 로그인 데이터 로그 ===")
+        print("=" * 60)
+        print("📥 사용자 입력 데이터:", request.dict())
+        print("📄 JSON 형태:", json.dumps(request.dict(), indent=2, ensure_ascii=False))
+        print("-" * 60)
+        print("📝 로그인 데이터:", json.dumps(login_data, indent=2, ensure_ascii=False))
+        print("=" * 60)
         
         # JSON 파일로 저장 (선택사항)
         log_dir = "/app/logs"
@@ -105,9 +108,12 @@ async def login(request: LoginRequest):
             json.dump(login_data, f, indent=2, ensure_ascii=False)
         
         # Auth Service로 데이터 전달
-        print("=== Auth Service로 데이터 전달 ===")
-        print("전달할 데이터:", json.dumps(request.dict(), indent=2, ensure_ascii=False))
-        print("Auth Service URL: http://auth-service:8003/auth/login")
+        print("=" * 60)
+        print("🔄 === Auth Service로 데이터 전달 ===")
+        print("=" * 60)
+        print("📤 전달할 데이터:", json.dumps(request.dict(), indent=2, ensure_ascii=False))
+        print("🌐 Auth Service URL: http://auth-service:8003/auth/login")
+        print("=" * 60)
         
         async with httpx.AsyncClient() as client:
             auth_response = await client.post(
