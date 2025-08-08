@@ -6,6 +6,11 @@ import os
 import httpx
 from datetime import datetime
 import pytz
+import logging
+
+# httpx 로그를 현재 시간으로 설정
+os.environ['TZ'] = 'Asia/Seoul'
+logging.basicConfig(level=logging.INFO)
 
 router = APIRouter(prefix="/user", tags=["User Management"])
 
