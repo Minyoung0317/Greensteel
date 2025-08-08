@@ -8,6 +8,7 @@ class ServiceType(str, Enum):
     CHATBOT = "chatbot"
     LCA = "lca"
     REPORT = "report"
+    AUTH = "auth"
 
 class ServiceDiscovery:
     def __init__(self, service_type: ServiceType):
@@ -17,7 +18,8 @@ class ServiceDiscovery:
             ServiceType.CBAM: os.getenv("CBAM_SERVICE_URL", "http://cbam-service:8001"),
             ServiceType.CHATBOT: os.getenv("CHATBOT_SERVICE_URL", "http://chatbot-service:8002"),
             ServiceType.LCA: os.getenv("LCA_SERVICE_URL", "http://lca-service:8003"),
-            ServiceType.REPORT: os.getenv("REPORT_SERVICE_URL", "http://report-service:8004")
+            ServiceType.REPORT: os.getenv("REPORT_SERVICE_URL", "http://report-service:8004"),
+            ServiceType.AUTH: os.getenv("AUTH_SERVICE_URL", "http://auth-service:8005")
         }
     
     async def request(

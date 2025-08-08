@@ -117,7 +117,7 @@ async def login(request: LoginRequest):
         
         async with httpx.AsyncClient() as client:
             auth_response = await client.post(
-                "http://auth-service:8003/auth/login",
+                "http://auth-service:8005/auth/login",
                 json=request.dict(),
                 timeout=10.0
             )

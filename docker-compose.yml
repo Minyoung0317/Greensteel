@@ -46,7 +46,7 @@ services:
   auth-service:
     build: ./service/auth-service
     ports:
-      - "8005:8003"
+      - "8005:8005"
     volumes:
       - ./service/auth-service:/app
     env_file:
