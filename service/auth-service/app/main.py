@@ -10,7 +10,7 @@ import sys
 import json
 from datetime import datetime
 
-from router.user_router import auth_router
+from app.router.user_router import auth_router
 
 logging.basicConfig(
     level=logging.INFO,

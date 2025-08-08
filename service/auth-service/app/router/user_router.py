@@ -4,10 +4,10 @@ import logging
 import json
 from datetime import datetime
 
-from app.domain.auth.controller.google_controller import GoogleController
+# from app.domain.auth.controller.google_controller import GoogleController
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
-google_controller = GoogleController()
+# google_controller = GoogleController()
 
 # 로깅 설정
 logger = logging.getLogger("auth_service")
@@ -23,7 +23,7 @@ async def google_login(
     Google OAuth 로그인을 시작합니다.
     리다이렉트 URI는 state 파라미터로 전달되어 콜백 시 다시 받게 됩니다.
     """
-    return await google_controller.start_google_login(redirect_uri)
+    return {"message": "Google 로그인 기능 준비 중"}
 
 @auth_router.get("/google/callback", summary="Google OAuth 콜백 처리")
 async def google_callback(
@@ -34,7 +34,7 @@ async def google_callback(
     Google OAuth 콜백을 처리합니다.
     인증 코드를 받아 처리하고 세션 토큰을 쿠키에 설정한 후 리다이렉트합니다.
     """
-    return await google_controller.handle_google_callback(code, state)
+    return {"message": "Google 콜백 기능 준비 중"}
 
 @auth_router.post("/logout", summary="로그아웃")
 async def logout(session_token: str | None = Cookie(None)):
@@ -70,7 +70,7 @@ async def get_profile(session_token: str | None = Cookie(None)):
     if not session_token:
         raise HTTPException(status_code=401, detail="인증 쿠키가 없습니다.")
     try:
-        return await google_controller.get_user_profile(session_token)
+        return {"message": "프로필 조회 기능 준비 중"}
     except Exception as e:
         print(f"프로필 조회 오류: {e}")
         raise HTTPException(status_code=401, detail=str(e))
