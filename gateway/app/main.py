@@ -193,4 +193,5 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", os.getenv("SERVICE_PORT", 8080)))
-    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
+    print(f"🚀 Gateway 서비스 시작 - 포트: {port}")
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)
