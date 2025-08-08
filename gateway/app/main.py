@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 import logging
 import sys
+import uvicorn
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from fastapi import Request
@@ -191,7 +192,6 @@ async def root():
 
 # ✅ 서버 실행
 if __name__ == "__main__":
-    import uvicorn
-    port = int(os.getenv("PORT", "8080"))
+    port = int(os.getenv("PORT", 8080))
     print(f"🚀 Gateway 서비스 시작 - 포트: {port}")
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)
