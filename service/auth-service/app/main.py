@@ -188,8 +188,9 @@ async def login(request: LoginRequest, response: Response):
     try:
         current_time = get_current_time()
         
-        logger.info("=== Auth Service 로그인 처리 시작 ===")
-        logger.info(f"로그인 요청: {request.dict()}")
+        logger.info("🚀 === Auth Service 로그인 처리 시작 ===")
+        logger.info(f"📥 로그인 요청: {request.dict()}")
+        logger.info(f"⏰ 요청 시간: {current_time.isoformat()}")
         
         if not request.email or not request.password:
             raise HTTPException(status_code=400, detail="이메일과 비밀번호를 입력해주세요")
@@ -269,8 +270,9 @@ async def signup(request: SignupRequest):
     try:
         current_time = get_current_time()
         
-        logger.info("=== Auth Service 회원가입 처리 시작 ===")
-        logger.info(f"회원가입 요청: {request.dict()}")
+        logger.info("🚀 === Auth Service 회원가입 처리 시작 ===")
+        logger.info(f"📥 회원가입 요청: {request.dict()}")
+        logger.info(f"⏰ 요청 시간: {current_time.isoformat()}")
         
         if not request.email or not request.password:
             raise HTTPException(status_code=400, detail="이메일과 비밀번호를 입력해주세요")

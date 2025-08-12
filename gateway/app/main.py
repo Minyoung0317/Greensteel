@@ -153,23 +153,30 @@ async def cors_debug_middleware(request: Request, call_next):
     """CORS 요청 디버깅을 위한 미들웨어"""
     origin = request.headers.get("origin")
     method = request.method
+    path = request.url.path
     
-    logger.info(f"🌐 CORS 디버깅: {method} {request.url.path}")
+    logger.info(f"🌐 CORS 디버깅: {method} {path}")
     logger.info(f"   Origin: {origin}")
+    logger.info(f"   User-Agent: {request.headers.get('user-agent', 'NOT_SET')}")
     logger.info(f"   Allowed Origins: {ALLOWED_ORIGINS}")
     
     if origin:
         is_allowed = origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin)
         logger.info(f"   Origin Allowed: {is_allowed}")
     
-    response = await call_next(request)
-    
-    # CORS 헤더 확인
-    cors_headers = {k: v for k, v in response.headers.items() if 'access-control' in k.lower()}
-    if cors_headers:
-        logger.info(f"   CORS Headers: {cors_headers}")
-    
-    return response
+    try:
+        response = await call_next(request)
+        
+        # CORS 헤더 확인
+        cors_headers = {k: v for k, v in response.headers.items() if 'access-control' in k.lower()}
+        if cors_headers:
+            logger.info(f"   CORS Headers: {cors_headers}")
+        
+        logger.info(f"✅ 요청 처리 완료: {method} {path} -> {response.status_code}")
+        return response
+    except Exception as e:
+        logger.error(f"❌ 요청 처리 중 오류: {method} {path} - {str(e)}")
+        raise
 
 def _forward_headers(request: Request) -> Dict[str, str]:
     skip = {"host", "content-length"}
@@ -207,11 +214,12 @@ gateway_router = APIRouter(prefix="/api/v1", tags=["Gateway API"])
 @gateway_router.options("/{service}/{path:path}", summary="OPTIONS 프록시")
 async def proxy_options(service: ServiceType, path: str, request: Request):
     """OPTIONS 요청을 처리합니다 (CORS preflight)."""
-    logger.info(f"[PROXY >>] Method: OPTIONS, Service: {service.value}, Path: /{path}")
+    logger.info(f"🚀 [PROXY >>] Method: OPTIONS, Service: {service.value}, Path: /{path}")
     logger.info(f"🌐 OPTIONS 요청 CORS 디버깅:")
     logger.info(f"   Origin: {request.headers.get('Origin', 'NOT_SET')}")
     logger.info(f"   Access-Control-Request-Method: {request.headers.get('Access-Control-Request-Method', 'NOT_SET')}")
     logger.info(f"   Access-Control-Request-Headers: {request.headers.get('Access-Control-Request-Headers', 'NOT_SET')}")
+    logger.info(f"   User-Agent: {request.headers.get('User-Agent', 'NOT_SET')}")
     
     origin = request.headers.get('Origin', 'https://www.minyoung.cloud')
     
@@ -227,6 +235,7 @@ async def proxy_options(service: ServiceType, path: str, request: Request):
         )
     
     logger.info(f"✅ CORS Origin 허용: {origin}")
+    logger.info(f"✅ OPTIONS 응답 헤더 설정 완료")
     
     return Response(
         status_code=200,
@@ -250,12 +259,16 @@ async def proxy_post(
 ):
     # auth 서비스는 프록시로 처리
     if service == ServiceType.AUTH:
-        logger.info(f"🔐 AUTH 프록시 요청 시작: /auth/{path}")
+        logger.info(f"🚀 🔐 AUTH 프록시 요청 시작: /auth/{path}")
         logger.info(f"📥 요청 헤더: {dict(request.headers)}")
+        logger.info(f"🌐 Origin: {request.headers.get('origin', 'NOT_SET')}")
+        logger.info(f"📋 Content-Type: {request.headers.get('content-type', 'NOT_SET')}")
         
         # 요청 바디 읽기
         body: bytes = await request.body()
         logger.info(f"📦 요청 바디 크기: {len(body)} bytes")
+        if body:
+            logger.info(f"📄 요청 바디 내용: {body.decode('utf-8', errors='ignore')}")
         
         # auth-service로 요청 전달
         # 환경변수에서 AUTH_SERVICE_URL 가져오기
@@ -279,6 +292,7 @@ async def proxy_post(
                 
                 logger.info(f"✅ Auth Service 응답: {response.status_code}")
                 logger.info(f"📤 응답 헤더: {dict(response.headers)}")
+                logger.info(f"📄 응답 내용: {response.content.decode('utf-8', errors='ignore')}")
                 
                 # 응답 헤더 준비 (Set-Cookie 포함)
                 response_headers = dict(response.headers)
