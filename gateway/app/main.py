@@ -51,7 +51,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS 설정 - allow_credentials=True 시 wildcard 금지
+# CORS 설정 - allow_credentials=True 시 와일드카드 금지
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -63,8 +63,8 @@ app.add_middleware(
         "https://minyoung.cloud",  # 커스텀 도메인 (루트)
         "https://greensteel.vercel.app",  # Vercel 도메인
         "https://greensteel-gateway-production.up.railway.app",  # Railway Gateway
-        "https://*.vercel.app",  # Vercel 서브도메인
-        "https://*.railway.app",  # Railway 서브도메인
+        "https://greensteel-frontend.vercel.app",  # Vercel 프론트엔드
+        "https://greensteel-gateway.railway.app",  # Railway Gateway
     ],
     allow_credentials=True,  # HttpOnly 쿠키 사용을 위해 필수
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],

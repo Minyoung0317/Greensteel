@@ -32,7 +32,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS 설정 - allow_credentials=True 시 wildcard 금지
+# CORS 설정 - allow_credentials=True 시 와일드카드 금지
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -42,8 +42,8 @@ app.add_middleware(
         "https://minyoung.cloud",      # 커스텀 도메인 (루트)
         "https://greensteel.vercel.app",  # Vercel 도메인
         "https://greensteel-gateway-production.up.railway.app",  # Railway Gateway
-        "https://*.vercel.app",  # Vercel 서브도메인
-        "https://*.railway.app",  # Railway 서브도메인
+        "https://greensteel-frontend.vercel.app",  # Vercel 프론트엔드
+        "https://greensteel-gateway.railway.app",  # Railway Gateway
     ],
     allow_credentials=True,  # HttpOnly 쿠키 사용을 위해 필수
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -162,7 +162,7 @@ async def login(request: LoginRequest, response: Response):
             key="session_id",
             value=session_id,
             httponly=True,
-            secure=False,  # 개발 환경에서는 False, 프로덕션에서는 True
+            secure=True,  # HTTPS 환경에서만 전송
             samesite="lax",  # CSRF 방지
             max_age=86400,  # 24시간
             path="/",
@@ -300,13 +300,32 @@ async def options_handler(request: Request, path: str):
     """
     OPTIONS 요청 처리 (CORS preflight)
     """
+    # Origin 기반 동적 설정
+    origin = request.headers.get("origin")
+    if origin and origin in [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "https://www.minyoung.cloud",
+        "https://minyoung.cloud",
+        "https://greensteel.vercel.app",
+        "https://greensteel-gateway-production.up.railway.app",
+        "https://greensteel-frontend.vercel.app",
+        "https://greensteel-gateway.railway.app",
+    ]:
+        allow_origin = origin
+    else:
+        allow_origin = "https://www.minyoung.cloud"
+    
+    logger.info(f"🔄 Auth Service OPTIONS 요청 처리: {path} from {origin}")
+    
     return Response(
         status_code=200,
         headers={
-            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+            "Access-Control-Allow-Origin": allow_origin,
             "Access-Control-Allow-Credentials": "true",
             "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
             "Access-Control-Allow-Headers": "*",
+            "Access-Control-Expose-Headers": "*",
             "Access-Control-Max-Age": "86400",
         }
     )

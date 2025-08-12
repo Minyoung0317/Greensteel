@@ -27,11 +27,18 @@ async def forward_request_to_auth_service(
         # 요청 헤더 준비 (쿠키 포함)
         headers = dict(request.headers)
         
+        # 쿠키 헤더 명시적 설정
+        if "cookie" in headers:
+            logger.info(f"🍪 쿠키 전달: {headers['cookie']}")
+        else:
+            logger.info("🍪 전달할 쿠키 없음")
+        
         # Auth Service로 요청 전달
         async with httpx.AsyncClient() as client:
             auth_url = f"{AUTH_SERVICE_URL}/{path}"
             
             logger.info(f"🔄 Auth Service로 요청 전달: {method} {auth_url}")
+            logger.info(f"📤 Origin: {request.headers.get('origin', 'N/A')}")
             logger.info(f"📤 전달할 헤더: {dict(headers)}")
             
             response = await client.request(
@@ -47,11 +54,34 @@ async def forward_request_to_auth_service(
             # 응답 헤더 준비 (Set-Cookie 포함)
             response_headers = dict(response.headers)
             
-            # CORS 헤더 추가
-            response_headers["Access-Control-Allow-Origin"] = request.headers.get("origin", "*")
+            # Set-Cookie 헤더 로깅
+            if "set-cookie" in response_headers:
+                logger.info(f"🍪 Set-Cookie 응답: {response_headers['set-cookie']}")
+            else:
+                logger.info("🍪 Set-Cookie 응답 없음")
+            
+            # CORS 헤더 추가 - Origin 기반 동적 설정
+            origin = request.headers.get("origin")
+            if origin and origin in [
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://frontend:3000",
+                "https://greensteel-48kl4yapx-bagm922-7953s-projects.vercel.app",
+                "https://www.minyoung.cloud",
+                "https://minyoung.cloud",
+                "https://greensteel.vercel.app",
+                "https://greensteel-gateway-production.up.railway.app",
+                "https://greensteel-frontend.vercel.app",
+                "https://greensteel-gateway.railway.app",
+            ]:
+                response_headers["Access-Control-Allow-Origin"] = origin
+            else:
+                response_headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
+            
             response_headers["Access-Control-Allow-Credentials"] = "true"
             response_headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
             response_headers["Access-Control-Allow-Headers"] = "*"
+            response_headers["Access-Control-Expose-Headers"] = "*"
             
             # 응답 생성
             return Response(
@@ -104,13 +134,34 @@ async def auth_proxy_options(request: Request, path: str):
     """
     OPTIONS 요청 처리 (CORS preflight)
     """
+    # Origin 기반 동적 설정
+    origin = request.headers.get("origin")
+    if origin and origin in [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://frontend:3000",
+        "https://greensteel-48kl4yapx-bagm922-7953s-projects.vercel.app",
+        "https://www.minyoung.cloud",
+        "https://minyoung.cloud",
+        "https://greensteel.vercel.app",
+        "https://greensteel-gateway-production.up.railway.app",
+        "https://greensteel-frontend.vercel.app",
+        "https://greensteel-gateway.railway.app",
+    ]:
+        allow_origin = origin
+    else:
+        allow_origin = "https://www.minyoung.cloud"
+    
+    logger.info(f"🔄 OPTIONS 요청 처리: {path} from {origin}")
+    
     return Response(
         status_code=200,
         headers={
-            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+            "Access-Control-Allow-Origin": allow_origin,
             "Access-Control-Allow-Credentials": "true",
             "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
             "Access-Control-Allow-Headers": "*",
+            "Access-Control-Expose-Headers": "*",
             "Access-Control-Max-Age": "86400",
         }
     )
