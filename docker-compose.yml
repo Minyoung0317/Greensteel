@@ -53,13 +53,19 @@ services:
       - ./service/auth-service/.env
     environment:
       - PYTHONUNBUFFERED=1
+      - PYTHONFAULTHANDLER=1
       - FRONTEND_ORIGIN=https://www.minyoung.cloud,https://minyoung.cloud,https://greensteel.vercel.app
-      - RAILWAY_ENVIRONMENT=true
+      - RAILWAY_ENVIRONMENT=false
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/greensteel
     depends_on:
       - postgres
     networks:
       - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   report-service:
     build: ./service/report-service/app
@@ -87,8 +93,9 @@ services:
       - ./gateway/.env
     environment:
       - PYTHONUNBUFFERED=1
+      - PYTHONFAULTHANDLER=1
       - FRONTEND_ORIGIN=https://www.minyoung.cloud,https://minyoung.cloud,https://greensteel.vercel.app
-      - RAILWAY_ENVIRONMENT=true
+      - RAILWAY_ENVIRONMENT=false
     restart: always
     depends_on:
       - cbam-service
@@ -102,6 +109,11 @@ services:
       - 8.8.4.4
     networks:
       - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   postgres:
     image: postgres:15-alpine

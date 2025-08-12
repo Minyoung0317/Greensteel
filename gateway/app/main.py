@@ -62,9 +62,10 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
+logger = logging.getLogger("gateway_api")
 
-# Railway 환경에서 로그 레벨 강제 설정
-if os.getenv("RAILWAY_ENVIRONMENT", "false").lower() == "true":
+# Docker/Railway 환경에서 로그 레벨 강제 설정
+if os.getenv("RAILWAY_ENVIRONMENT", "false").lower() == "true" or os.getenv("RAILWAY_ENVIRONMENT", "").lower() == "production":
     logging.getLogger().setLevel(logging.INFO)
     logger.setLevel(logging.INFO)
     logger.info("🚂 Railway 환경에서 로깅 레벨을 INFO로 설정")
@@ -79,6 +80,22 @@ if os.getenv("RAILWAY_ENVIRONMENT", "false").lower() == "true":
         handler.flush()
     
     logger.info("🔄 Railway 로그 출력 강제 플러시 완료")
+else:
+    # Docker 환경에서도 동일한 로깅 설정
+    logging.getLogger().setLevel(logging.INFO)
+    logger.setLevel(logging.INFO)
+    logger.info("🐳 Docker 환경에서 로깅 레벨을 INFO로 설정")
+    
+    # Docker에서도 로그 지속성을 위한 설정
+    import sys
+    sys.stdout.flush()
+    sys.stderr.flush()
+    
+    # 모든 로거에 대해 강제 출력 설정
+    for handler in logging.getLogger().handlers:
+        handler.flush()
+    
+    logger.info("🔄 Docker 로그 출력 강제 플러시 완료")
 
 # 파일이 필요한 서비스 (필요 시 채워서 사용)
 FILE_REQUIRED_SERVICES: set[ServiceType] = set()

@@ -57,6 +57,18 @@ if RAILWAY_ENV:
         handler.flush()
     
     logger.info("🔄 Auth Service Railway 로그 출력 강제 플러시 완료")
+else:
+    # Docker 환경에서도 동일한 로깅 설정
+    logger.info("🐳 Docker 환경에서 로그 지속성 설정")
+    import sys
+    sys.stdout.flush()
+    sys.stderr.flush()
+    
+    # 모든 로거에 대해 강제 출력 설정
+    for handler in logging.getLogger().handlers:
+        handler.flush()
+    
+    logger.info("🔄 Auth Service Docker 로그 출력 강제 플러시 완료")
 
 app = FastAPI(
     title="Account Service API",

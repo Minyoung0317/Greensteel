@@ -8,7 +8,10 @@ down:
 	docker-compose down
 
 logs:
-	docker-compose logs -f
+	docker-compose logs -f --timestamps
+
+logs-all:
+	docker-compose logs -f --timestamps --tail=100
 
 restart:
 	docker-compose down && docker-compose up -d --build
@@ -29,7 +32,7 @@ down-gateway:
 	docker-compose stop gateway
 
 logs-gateway:
-	docker-compose logs -f gateway
+	docker-compose logs -f --timestamps gateway
 
 restart-gateway:
 	docker-compose stop gateway && docker-compose up -d gateway
@@ -45,7 +48,7 @@ down-cbam:
 	docker-compose stop cbam-service
 
 logs-cbam:
-	docker-compose logs -f cbam-service
+	docker-compose logs -f --timestamps cbam-service
 
 restart-cbam:
 	docker-compose stop cbam-service && docker-compose up -d cbam-service
@@ -61,7 +64,7 @@ down-chatbot:
 	docker-compose stop chatbot-service
 
 logs-chatbot:
-	docker-compose logs -f chatbot-service
+	docker-compose logs -f --timestamps chatbot-service
 
 restart-chatbot:
 	docker-compose stop chatbot-service && docker-compose up -d chatbot-service
@@ -77,10 +80,26 @@ down-lca:
 	docker-compose stop lca-service
 
 logs-lca:
-	docker-compose logs -f lca-service
+	docker-compose logs -f --timestamps lca-service
 
 restart-lca:
 	docker-compose stop lca-service && docker-compose up -d lca-service
+
+## auth-service
+build-auth:
+	docker-compose build auth-service
+
+up-auth:
+	docker-compose up -d auth-service
+
+down-auth:
+	docker-compose stop auth-service
+
+logs-auth:
+	docker-compose logs -f --timestamps auth-service
+
+restart-auth:
+	docker-compose stop auth-service && docker-compose up -d auth-service
 
 ## report-service
 build-report:
@@ -93,7 +112,7 @@ down-report:
 	docker-compose stop report-service
 
 logs-report:
-	docker-compose logs -f report-service
+	docker-compose logs -f --timestamps report-service
 
 restart-report:
 	docker-compose stop report-service && docker-compose up -d report-service
