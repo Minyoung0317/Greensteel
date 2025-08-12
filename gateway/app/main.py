@@ -1,18 +1,22 @@
-from typing import Optional, List
-from fastapi import APIRouter, FastAPI, Request, UploadFile, File, Query, HTTPException, Form, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
-import os
-import logging
-import sys
-import uvicorn
-import datetime
-import json
-from dotenv import load_dotenv
+# gateway/app/main.py
+from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
+import os
+import sys
+import json
+import logging
+import datetime as dt
+import re
 
-from app.router.auth_router import router as auth_router
+from fastapi import (
+    FastAPI, APIRouter, Request, UploadFile, Query, HTTPException
+)
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, Response
+from dotenv import load_dotenv
+
+# --- 프로젝트 내부 모듈 ---
+from app.router.auth_router import auth_router
 from app.router.user_router import router as user_router
 from app.router.chatbot_router import router as chatbot_router
 from app.www.google.jwt_auth_middleware import AuthMiddleware
@@ -21,249 +25,206 @@ from app.domain.discovery.model.service_type import ServiceType
 from app.common.utility.constant.settings import Settings
 from app.common.utility.factory.response_factory import ResponseFactory
 
+# ---------------------------------------------------------------------
+# ENV
 # Railway 환경에서는 dotenv 로드하지 않음
 if os.getenv("RAILWAY_ENVIRONMENT") != "true":
     load_dotenv()
 
-# 로깅 설정 강화
+# 로깅
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger("gateway_api")
 
+# 파일이 필요한 서비스 (필요 시 채워서 사용)
+FILE_REQUIRED_SERVICES: set[ServiceType] = set()
+
+# ---------------------------------------------------------------------
+# Lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Gateway API 서비스 시작")
-    logger.info(f"환경: {'Railway' if os.getenv('RAILWAY_ENVIRONMENT') == 'true' else 'Local/Docker'}")
+    logger.info(
+        f"환경: {'Railway' if os.getenv('RAILWAY_ENVIRONMENT') == 'true' else 'Local/Docker'}"
+    )
     logger.info(f"포트: {os.getenv('PORT', '8080')}")
-    # Settings 초기화 및 앱 state에 등록
     app.state.settings = Settings()
     yield
     logger.info("🛑 Gateway API 서비스 종료")
 
+# ---------------------------------------------------------------------
+# 앱
 app = FastAPI(
     title="Gateway API",
     description="Gateway API for GreenSteel",
     version="0.1.0",
     docs_url="/docs",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
-# 환경변수에서 허용할 Origin 목록 가져오기
-def get_allowed_origins():
-    """
-    환경변수 FRONTEND_ORIGIN에서 허용할 Origin 목록을 가져옴
-    
-    환경변수 설정 예시:
-    - Railway: FRONTEND_ORIGIN=https://www.minyoung.cloud,https://minyoung.cloud,https://greensteel.vercel.app
-    - 로컬: FRONTEND_ORIGIN=http://localhost:3000,http://127.0.0.1:3000
-    
-    테스트 방법:
-    1. 로컬 테스트: curl -X OPTIONS http://localhost:8080/api/v1/auth/login -H "Origin: http://localhost:3000"
-    2. 프로덕션 테스트: curl -X OPTIONS https://gateway-url/api/v1/auth/login -H "Origin: https://www.minyoung.cloud"
-    3. 브라우저 테스트: https://www.minyoung.cloud에서 회원가입/로그인 시도
-    """
-    origins_str = os.getenv("FRONTEND_ORIGIN", "")
-    if origins_str:
-        # 콤마로 구분된 문자열을 리스트로 변환하고 공백 제거
-        origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
-        logger.info(f"🌐 허용된 Origin 목록: {origins}")
-        return origins
-    else:
-        # 기본값 (프로덕션 환경용) - 환경변수가 없을 때도 작동하도록
-        default_origins = [
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-            "http://frontend:3000",
-            "https://www.minyoung.cloud",
-            "https://minyoung.cloud",
-            "https://greensteel.vercel.app",
-            "https://greensteel-gateway-production.up.railway.app",
-            "https://greensteel-gateway-production-eeb5.up.railway.app",
-            "https://greensteel-frontend.vercel.app",
-            "https://greensteel-gateway.railway.app",
-        ]
-        logger.info(f"🌐 기본 Origin 목록 사용: {default_origins}")
-        return default_origins
+# ---------------------------------------------------------------------
+# CORS 설정 (환경변수 + 정규식 지원)
+# FRONTEND_ORIGIN="https://www.minyoung.cloud,https://minyoung.cloud,https://greensteel.vercel.app"
+# FRONTEND_ORIGIN_REGEX="^https://[a-z0-9-]+\\.vercel\\.app$"  # 모든 Vercel 프리뷰 허용(선택)
+def _get_cors_config() -> tuple[list[str], str | None]:
+    raw = os.getenv("FRONTEND_ORIGIN", "")
+    allow_list = [o.strip() for o in raw.split(",") if o.strip()]
+    regex_str = os.getenv("FRONTEND_ORIGIN_REGEX", "") or None
+    logger.info(f"[CORS] allow_origins={allow_list}, allow_origin_regex={regex_str}")
+    return allow_list, regex_str
 
-# CORS 설정 - 환경변수 기반, allow_credentials=True 시 와일드카드 금지
-# 
-# Railway 환경변수 설정:
-# FRONTEND_ORIGIN=https://www.minyoung.cloud,https://minyoung.cloud,https://greensteel.vercel.app
-#
-# 로컬 개발 환경변수 (.env):
-# FRONTEND_ORIGIN=http://localhost:3000,http://127.0.0.1:3000
-#
+def _forward_headers(request: Request) -> Dict[str, str]:
+    skip = {"host", "content-length"}
+    return {k: v for k, v in request.headers.items() if k.lower() not in skip}
+
+# ⭐ 미들웨어 순서 주의:
+# Starlette/FastAPI는 '마지막에 추가한' 미들웨어가 가장 바깥(먼저 실행)입니다.
+# → CORS 헤더가 프리플라이트/에러에도 항상 붙도록 '마지막'에 CORS를 추가합니다.
+# 인증/로깅 등 다른 미들웨어가 있다면 먼저 추가하세요.
+try:
+    # 필요 시 예외 경로 처리는 미들웨어 내부에서 수행(/api/v1/auth/*, OPTIONS 등)
+    app.add_middleware(AuthMiddleware)
+except Exception as e:
+    logger.warning(f"AuthMiddleware 추가 중 경고: {e}")
+
+_allow_list, _allow_regex = _get_cors_config()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_allowed_origins(),
-    allow_credentials=True,  # HttpOnly 쿠키 사용을 위해 필수
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_origins=_allow_list,
+    allow_origin_regex=_allow_regex,
+    allow_credentials=True,  # 세션 쿠키 전달
+    allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],  # 응답 헤더 노출
 )
+# ---------------------------------------------------------------------
 
-app.add_middleware(AuthMiddleware)
-
-# Frontend 정적 파일 서빙 (개발 모드에서는 Next.js dev server 사용)
+# 기본 루트 (헬스)
 @app.get("/")
 async def root():
-    return {"message": "GreenSteel Gateway API", "docs": "/docs"}
+    return {"message": "GreenSteel Gateway API", "docs": "/docs", "version": "0.1.0"}
 
+# 게이트웨이 라우터
 gateway_router = APIRouter(prefix="/api/v1", tags=["Gateway API"])
 gateway_router.include_router(auth_router)
 gateway_router.include_router(user_router)
 gateway_router.include_router(chatbot_router)
-app.include_router(gateway_router)
 
-# 🪡🪡🪡 파일이 필요한 서비스 목록 (현재는 없음)
-FILE_REQUIRED_SERVICES = set()
+# ---------------------------------------------------------------------
+# /api/v1/auth 전용 프록시 (세션 쿠키/Set-Cookie 패스스루)
+@gateway_router.post("/auth/{path:path}", summary="Auth 전용 프록시 (POST)")
+async def auth_proxy(path: str, request: Request):
+    factory = ServiceDiscovery(service_type=ServiceType.AUTH)
+    body = await request.body()
 
+    logger.info(f"🔐 AUTH 프록시 요청: /auth/{path} (len={len(body) if body else 0})")
 
+    resp = await factory.request(
+        method="POST",
+        path=path,
+        headers=_forward_headers(request),
+        body=body,
+        cookies=request.cookies,  # ✅ 세션 쿠키 전달
+    )
 
-# GET 프록시 제거 - POST 방식만 지원
+    out = ResponseFactory.create_response(resp)
+    # ✅ auth-service가 내려준 Set-Cookie 헤더를 그대로 전달
+    if "set-cookie" in resp.headers:
+        out.headers["set-cookie"] = resp.headers["set-cookie"]
+    return out
 
-# 파일 업로드 및 일반 JSON 요청 모두 처리, JWT 적용
+# ---------------------------------------------------------------------
+# 동적 프록시 (POST) - 세션 쿠키 전달/Set-Cookie 패스스루
 @gateway_router.post("/{service}/{path:path}", summary="POST 프록시")
 async def proxy_post(
-    service: ServiceType, 
+    service: ServiceType,
     path: str,
     request: Request,
     file: Optional[UploadFile] = None,
-    sheet_names: Optional[List[str]] = Query(None, alias="sheet_name")
+    sheet_names: Optional[List[str]] = Query(None, alias="sheet_name"),
 ):
     try:
-        # 로깅 강화
-        logger.info(f"🌈 POST 요청 받음: 서비스={service}, 경로={path}")
-        if file:
-            logger.info(f"파일명: {file.filename}, 시트 이름: {sheet_names if sheet_names else '없음'}")
-        
-        # 요청 본문 로깅 (auth-service로 전달할 데이터)
-        try:
-            body = await request.body()
-            if body:
-                logger.info(f"📝 요청 데이터 크기: {len(body)} bytes")
-                # auth-service로 데이터 로그 전달
-                await log_to_auth_service(service, path, body)
-        except Exception as e:
-            logger.warning(f"요청 본문 읽기 실패: {str(e)}")
+        logger.info(f"🌈 POST 프록시: 서비스={service}, 경로={path}")
+        body: bytes = await request.body()
 
-        # 서비스 팩토리 생성
+        # (선택) auth-service로 데이터 사용 로그 전송
+        if body:
+            await log_to_auth_service(service, path, body)
+
         factory = ServiceDiscovery(service_type=service)
-        
-        # 요청 파라미터 초기화
+
         files = None
         params = None
         data = None
-        
-        # 헤더 전달 (JWT 및 사용자 ID - 미들웨어에서 이미 X-User-Id 헤더가 추가됨)
-        headers = dict(request.headers)
-        
-        # 파일이 필요한 서비스 처리
+        headers = _forward_headers(request)
+
         if service in FILE_REQUIRED_SERVICES:
-            # 파일이 필요한 서비스인 경우
-            
-            # 서비스 URI가 upload인 경우만 파일 체크
             if "upload" in path and not file:
-                raise HTTPException(status_code=400, detail=f"서비스 {service}에는 파일 업로드가 필요합니다.")
-            
-            # 파일이 제공된 경우 처리
+                raise HTTPException(
+                    status_code=400, detail=f"서비스 {service}에는 파일 업로드가 필요합니다."
+                )
             if file:
                 file_content = await file.read()
-                files = {'file': (file.filename, file_content, file.content_type)}
-                
-                # 파일 위치 되돌리기 (다른 코드에서 다시 읽을 수 있도록)
+                files = {"file": (file.filename, file_content, file.content_type)}
                 await file.seek(0)
-            
-            # 시트 이름이 제공된 경우 처리
             if sheet_names:
-                params = {'sheet_name': sheet_names}
-        else:
-            # 일반 서비스 처리 (body JSON 전달)
-            try:
-                body = await request.body()
-                if not body:
-                    # body가 비어있는 경우도 허용
-                    logger.info("요청 본문이 비어 있습니다.")
-            except Exception as e:
-                logger.warning(f"요청 본문 읽기 실패: {str(e)}")
-                
-        # 서비스에 요청 전달
-        response = await factory.request(
+                params = {"sheet_name": sheet_names}
+
+        resp = await factory.request(
             method="POST",
             path=path,
             headers=headers,
-            body=body,
+            body=body if files is None else None,
             files=files,
             params=params,
-            data=data
-        )
-        
-        # 응답 처리 및 반환
-        return ResponseFactory.create_response(response)
-        
-    except HTTPException as he:
-        # HTTP 예외는 그대로 반환
-        return JSONResponse(
-            content={"detail": he.detail},
-            status_code=he.status_code
-        )
-    except Exception as e:
-        # 일반 예외는 로깅 후 500 에러 반환
-        logger.error(f"POST 요청 처리 중 오류 발생: {str(e)}")
-        return JSONResponse(
-            content={"detail": f"Gateway error: {str(e)}"},
-            status_code=500
+            data=data,
+            cookies=request.cookies,  # ✅ 세션 쿠키 전달
         )
 
+        out = ResponseFactory.create_response(resp)
+        # ✅ Set-Cookie 패스스루
+        if "set-cookie" in resp.headers:
+            out.headers["set-cookie"] = resp.headers["set-cookie"]
+        return out
+
+    except HTTPException as he:
+        return JSONResponse(content={"detail": he.detail}, status_code=he.status_code)
+    except Exception as e:
+        logger.exception("POST 프록시 처리 중 오류")
+        return JSONResponse(content={"detail": f"Gateway error: {str(e)}"}, status_code=500)
+
+# ---------------------------------------------------------------------
+# 유틸: auth-service로 데이터 로그 전달 (옵션)
 async def log_to_auth_service(service: ServiceType, path: str, body: bytes):
-    """auth-service로 데이터 로그를 전달하는 함수"""
     try:
-        # auth-service로 로그 전달
         auth_factory = ServiceDiscovery(service_type=ServiceType.AUTH)
-        
         log_data = {
-            "service": service.value,
+            "service": service.value if hasattr(service, "value") else str(service),
             "path": path,
             "data_size": len(body),
-            "timestamp": str(datetime.datetime.now()),
-            "source": "gateway"
+            "timestamp": dt.datetime.utcnow().isoformat() + "Z",
+            "source": "gateway",
         }
-        
-        # auth-service의 로그 엔드포인트로 전달
         await auth_factory.request(
             method="POST",
             path="logs/data",
             headers={"Content-Type": "application/json"},
-            body=json.dumps(log_data).encode('utf-8')
+            body=json.dumps(log_data).encode("utf-8"),
         )
-        
-        logger.info(f"📊 데이터 로그를 auth-service로 전달 완료: {service.value}/{path}")
-        
+        logger.info(f"📊 데이터 로그 전송 완료: {service}/{path}")
     except Exception as e:
-        logger.error(f"auth-service로 로그 전달 실패: {str(e)}")
+        logger.warning(f"auth-service 로그 전송 실패: {e}")
 
-# PUT - 일반 동적 라우팅 (JWT 적용)
-# PUT, DELETE, PATCH 프록시 제거 - POST 방식만 지원
+# ---------------------------------------------------------------------
+# 라우터 등록
+app.include_router(gateway_router)
 
-# ✅ 메인 라우터 등록 (동적 라우팅)
-# app.include_router(gateway_router) # 중복된 라우터 등록 제거
+# ---------------------------------------------------------------------
+# 로컬 실행용
+if __name__ == "__main__":
+    import uvicorn
 
-# 404 에러 핸들러
-@app.exception_handler(404)
-async def not_found_handler(request: Request, exc):
-    return JSONResponse(
-        status_code=404,
-        content={"detail": "요청한 리소스를 찾을 수 없습니다."}
-    )
-
-# 기본 루트 경로
-@app.get("/")
-async def root():
-    logger.info("🌈 Gateway API 서비스 시작")
-    return {"message": "Gateway API", "version": "0.1.0"}
-
-
-
+    port = int(os.getenv("PORT", "8080"))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port)
