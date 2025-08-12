@@ -65,76 +65,31 @@ app = FastAPI(
 )
 
 # ---------------------------------------------------------------------
-# CORS 설정 (환경변수 + 정규식 지원)
-# FRONTEND_ORIGIN="https://www.minyoung.cloud,https://minyoung.cloud,https://greensteel.vercel.app"
-# FRONTEND_ORIGIN_REGEX="^https://[a-z0-9-]+\\.vercel\\.app$"  # 모든 Vercel 프리뷰 허용(선택)
-def _get_cors_config() -> tuple[list[str], str | None]:
-    raw = os.getenv("FRONTEND_ORIGIN", "")
-    allow_list = [o.strip() for o in raw.split(",") if o.strip()]
-    
-    # 기본값 추가 (환경변수가 없을 때도 작동하도록)
-    if not allow_list:
-        allow_list = [
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-            "http://frontend:3000",   # Docker 내부 네트워크
-            "https://www.minyoung.cloud",
-            "https://minyoung.cloud",
-            "https://greensteel.vercel.app",
-            "https://greensteel-gateway-production.up.railway.app",
-            "https://greensteel-gateway-production-eeb5.up.railway.app",
-        ]
-    
-    regex_str = os.getenv("FRONTEND_ORIGIN_REGEX", "") or None
-    logger.info(f"[CORS] allow_origins={allow_list}, allow_origin_regex={regex_str}")
-    return allow_list, regex_str
+# CORS: 프로덕션 도메인은 정확히, 프리뷰는 정규식으로 허용
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://frontend:3000",   # Docker 내부 네트워크
+    "https://www.minyoung.cloud",  # + 끝 슬래시(/) 금지
+    "https://minyoung.cloud",      # + 끝 슬래시(/) 금지
+    "https://greensteel.vercel.app",  # + 끝 슬래시(/) 금지
+]
+
+ALLOW_ORIGIN_REGEX = r"^https:\/\/[a-z0-9-]+\.vercel\.app$"  # 모든 Vercel 프리뷰 허용
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=ALLOW_ORIGIN_REGEX,
+    allow_credentials=True,  # 쿠키/세션 사용 시 True
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
 
 def _forward_headers(request: Request) -> Dict[str, str]:
     skip = {"host", "content-length"}
     return {k: v for k, v in request.headers.items() if k.lower() not in skip}
-
-# CORS 미들웨어 설정 - 강화된 버전
-_allow_list, _allow_regex = _get_cors_config()
-logger.info(f"[Gateway CORS] Final allow_origins={_allow_list}")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_allow_list,
-    allow_origin_regex=_allow_regex,
-    allow_credentials=True,  # 세션 쿠키 전달
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=86400,  # preflight 캐시 시간
-)
-
-# ---------------------------------------------------------------------
-# 전역 OPTIONS 핸들러 (CORS preflight)
-@app.options("/{full_path:path}")
-async def global_options_handler(request: Request, full_path: str):
-    """전역 OPTIONS 요청 처리 (CORS preflight)"""
-    origin = request.headers.get("origin")
-    logger.info(f"[Global OPTIONS] Processing preflight for path: {full_path}, origin: {origin}")
-    
-    if origin:
-        _allow_list, _allow_regex = _get_cors_config()
-        if origin in _allow_list:
-            logger.info(f"[Global OPTIONS] Origin {origin} is allowed")
-            return Response(
-                status_code=200,
-                headers={
-                    "Access-Control-Allow-Origin": origin,
-                    "Access-Control-Allow-Credentials": "true",
-                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                    "Access-Control-Allow-Headers": "*",
-                    "Access-Control-Expose-Headers": "*",
-                    "Access-Control-Max-Age": "86400",
-                }
-            )
-        else:
-            logger.warning(f"[Global OPTIONS] Origin {origin} is not in allowed list: {_allow_list}")
-    
-    return Response(status_code=200)
 
 # ---------------------------------------------------------------------
 # 기본 루트 (헬스)
