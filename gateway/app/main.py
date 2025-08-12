@@ -15,7 +15,6 @@ from fastapi.responses import JSONResponse, Response
 from dotenv import load_dotenv
 
 # --- 프로젝트 내부 모듈 ---
-from app.router.auth_router import router as auth_router
 from app.router.user_router import router as user_router
 from app.router.chatbot_router import router as chatbot_router
 # JWT 미들웨어 제거됨 - 웹 회원가입만 사용
@@ -97,8 +96,7 @@ def _forward_headers(request: Request) -> Dict[str, str]:
 async def root():
     return {"message": "GreenSteel Gateway API", "docs": "/docs", "version": "0.1.0"}
 
-# Auth 라우터를 별도로 등록 (동적 프록시보다 우선순위)
-app.include_router(auth_router, prefix="/api/v1")
+# Auth 라우터 제거 - auth-service에서 직접 처리
 
 # 게이트웨이 라우터 (다른 서비스용)
 gateway_router = APIRouter(prefix="/api/v1", tags=["Gateway API"])
@@ -115,9 +113,9 @@ async def proxy_post(
     file: Optional[UploadFile] = None,
     sheet_names: Optional[List[str]] = Query(None, alias="sheet_name"),
 ):
-    # auth 서비스는 별도 라우터에서 처리하므로 제외
+    # auth 서비스는 직접 접근하므로 제외
     if service == ServiceType.AUTH:
-        raise HTTPException(status_code=404, detail="Auth service requests should use /auth endpoints")
+        raise HTTPException(status_code=404, detail="Auth service should be accessed directly")
     try:
         logger.info(f"🌈 POST 프록시: 서비스={service}, 경로={path}")
         body: bytes = await request.body()

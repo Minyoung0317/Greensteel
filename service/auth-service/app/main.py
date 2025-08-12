@@ -44,40 +44,29 @@ async def startup_event():
         logger.error(f"❌ 데이터베이스 초기화 실패: {str(e)}")
         # 데이터베이스 연결 실패해도 서비스는 계속 실행
 
-# CORS 설정 - allow_credentials=True 시 와일드카드 금지
-def get_cors_origins():
-    """환경변수에서 CORS origins 가져오기"""
-    origins_str = os.getenv("FRONTEND_ORIGIN", "")
-    if origins_str:
-        origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
-    else:
-        # 기본값
-        origins = [
-            "http://localhost:3000",
-            "http://localhost:8080",
-            "http://127.0.0.1:3000",
-            "https://www.minyoung.cloud",  # 커스텀 도메인 (www)
-            "https://minyoung.cloud",      # 커스텀 도메인 (루트)
-            "https://greensteel.vercel.app",  # Vercel 도메인
-            "https://greensteel-gateway-production.up.railway.app",  # Railway Gateway
-            "https://greensteel-gateway-production-eeb5.up.railway.app",  # 실제 Railway Gateway
-            "https://greensteel-frontend.vercel.app",  # Vercel 프론트엔드
-            "https://greensteel-gateway.railway.app",  # Railway Gateway
-        ]
-    logger.info(f"[Auth Service CORS] allow_origins={origins}")
-    return origins
+# CORS 설정 - 프로덕션 도메인은 정확히, 프리뷰는 정규식으로 허용
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://frontend:3000",   # Docker 내부 네트워크
+    "https://www.minyoung.cloud",  # + 끝 슬래시(/) 금지
+    "https://minyoung.cloud",      # + 끝 슬래시(/) 금지
+    "https://greensteel.vercel.app",  # + 끝 슬래시(/) 금지
+]
 
-# CORS 미들웨어를 앱 시작 시점에 추가
-cors_origins = get_cors_origins()
-logger.info(f"[Auth Service CORS] Final allow_origins={cors_origins}")
+ALLOW_ORIGIN_REGEX = r"^https:\/\/[a-z0-9-]+\.vercel\.app$"  # 모든 Vercel 프리뷰 허용
+
+# CORS 미들웨어 설정
+logger.info(f"[Auth Service CORS] allow_origins={ALLOWED_ORIGINS}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_credentials=True,  # HttpOnly 쿠키 사용을 위해 필수
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=ALLOW_ORIGIN_REGEX,
+    allow_credentials=True,  # 쿠키/세션 사용 시 True
+    allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],  # 응답 헤더 노출
+    expose_headers=["*"],
 )
 
 # Postgres 연결
@@ -406,11 +395,10 @@ async def options_handler(request: Request, path: str):
     """
     OPTIONS 요청 처리 (CORS preflight)
     """
-    # Origin 기반 동적 설정
+    # Origin 기반 설정
     origin = request.headers.get("origin")
-    allowed_origins = get_cors_origins()
     
-    if origin and origin in allowed_origins:
+    if origin and origin in ALLOWED_ORIGINS:
         allow_origin = origin
     else:
         allow_origin = "https://www.minyoung.cloud"
