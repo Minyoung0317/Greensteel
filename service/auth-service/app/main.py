@@ -53,7 +53,17 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+
 class LoginResponse(BaseModel):
+    status: str
+    message: str
+    timestamp: str
+    user_data: dict
+
+class SignupResponse(BaseModel):
     status: str
     message: str
     timestamp: str
@@ -128,6 +138,59 @@ async def login(request: LoginRequest):
     except Exception as e:
         logger.error(f"Auth Service 로그인 오류: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Auth Service 로그인 중 오류가 발생했습니다: {str(e)}")
+
+@app.post("/auth/signup")
+async def signup(request: SignupRequest):
+    """
+    회원가입 처리 - Gateway에서 전달받은 사용자 데이터 처리
+    """
+    try:
+        current_time = get_current_time()
+        
+        logger.info("=== Auth Service 회원가입 처리 시작 ===")
+        logger.info(f"Gateway에서 전달받은 사용자 데이터: {request.dict()}")
+        
+        # Railway/Docker Desktop에서 로그 확인을 위한 콘솔 출력
+        print("=" * 60)
+        print("🔐 === Auth Service 회원가입 데이터 로그 ===")
+        print("=" * 60)
+        print(f"🕐 현재 시간: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print("📥 Gateway에서 전달받은 데이터:")
+        print("사용자 입력 데이터:", request.dict())
+        print("JSON 형태:", json.dumps(request.dict(), indent=2, ensure_ascii=False))
+        print("-" * 60)
+        
+        # JSON 데이터 생성
+        signup_data = {
+            "timestamp": current_time.isoformat(),
+            "userData": {
+                "email": request.email,
+                "password": request.password
+            }
+        }
+        
+        print("📝 Auth Service에서 생성한 회원가입 데이터:")
+        print("회원가입 데이터:", json.dumps(signup_data, indent=2, ensure_ascii=False))
+        print("=" * 60)
+        
+        # JSON 파일로 저장 (선택사항)
+        log_dir = "/app/logs"
+        os.makedirs(log_dir, exist_ok=True)
+        
+        log_file = os.path.join(log_dir, f"auth_signup_{current_time.strftime('%Y%m%d_%H%M%S')}.json")
+        with open(log_file, 'w', encoding='utf-8') as f:
+            json.dump(signup_data, f, indent=2, ensure_ascii=False)
+        
+        return SignupResponse(
+            status="✅ success",
+            message="✅ Auth Service에서 회원가입 성공! Docker Desktop에서 로그를 확인하세요.",
+            timestamp=current_time.isoformat(),
+            user_data=request.dict()
+        )
+        
+    except Exception as e:
+        logger.error(f"Auth Service 회원가입 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Auth Service 회원가입 중 오류가 발생했습니다: {str(e)}")
 
 @app.get("/auth/health")
 async def auth_health():

@@ -17,5 +17,5 @@ COPY . .
 # 포트 노출
 EXPOSE 8001
 
-# 애플리케이션 실행
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+# 애플리케이션 실행 - Railway 환경변수 사용
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8001}"]

@@ -74,6 +74,20 @@ async def signup(request: SignupRequest):
         with open(log_file, 'w', encoding='utf-8') as f:
             json.dump(signup_data, f, indent=2, ensure_ascii=False)
         
+        # Auth Service로 데이터 전달 (선택사항)
+        try:
+            print("=== Auth Service로 회원가입 데이터 전달 시도 ===")
+            async with httpx.AsyncClient() as client:
+                auth_response = await client.post(
+                    "http://auth-service:8005/auth/signup",
+                    json=request.dict(),
+                    timeout=5.0
+                )
+                print(f"Auth Service 응답: {auth_response.status_code}")
+        except Exception as auth_error:
+            print(f"Auth Service 연결 실패 (무시됨): {str(auth_error)}")
+            # Auth Service 연결 실패는 무시하고 계속 진행
+        
         return SignupResponse(
             status="success",
             message="회원가입이 완료되었습니다! Docker Desktop에서 로그를 확인하세요.",
