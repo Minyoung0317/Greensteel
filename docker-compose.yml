@@ -4,7 +4,7 @@ services:
   cbam-service:
     build: ./service/cbam-service/app
     ports:
-      - "8001:8001"
+      - "8082:8082"
     volumes:
       - ./service/cbam-service/app:/app/app
       - ./service/cbam-service/app/requirements.txt:/app/requirements.txt
@@ -18,7 +18,7 @@ services:
   chatbot-service:
     build: ./service/chatbot-service/app
     ports:
-      - "8002:8002"
+      - "8083:8083"
     volumes:
       - ./service/chatbot-service/app:/app/app
       - ./service/chatbot-service/app/requirements.txt:/app/requirements.txt
@@ -32,7 +32,7 @@ services:
   lca-service:
     build: ./service/lca-service/app
     ports:
-      - "8003:8003"
+      - "8084:8084"
     volumes:
       - ./service/lca-service/app:/app/app
       - ./service/lca-service/app/requirements.txt:/app/requirements.txt
@@ -46,7 +46,7 @@ services:
   auth-service:
     build: ./service/auth-service
     ports:
-      - "8005:8005"
+      - "8081:8081"
     volumes:
       - ./service/auth-service:/app
     env_file:
@@ -59,7 +59,7 @@ services:
   report-service:
     build: ./service/report-service/app
     ports:
-      - "8004:8004"
+      - "8085:8085"
     volumes:
       - ./service/report-service/app:/app/app
       - ./service/report-service/app/requirements.txt:/app/requirements.txt

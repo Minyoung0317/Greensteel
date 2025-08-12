@@ -79,7 +79,7 @@ async def signup(request: SignupRequest):
             print("=== Auth Service로 회원가입 데이터 전달 시도 ===")
             async with httpx.AsyncClient() as client:
                 auth_response = await client.post(
-                    "http://auth-service:8005/auth/signup",
+                    "http://auth-service:8081/auth/signup",
                     json=request.dict(),
                     timeout=5.0
                 )
@@ -144,12 +144,12 @@ async def login(request: LoginRequest):
         print("=" * 60)
         print(f"🕐 현재 시간: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
         print("📤 전달할 데이터:", json.dumps(request.dict(), indent=2, ensure_ascii=False))
-        print("🌐 Auth Service URL: http://auth-service:8005/auth/login")
+        print("🌐 Auth Service URL: http://auth-service:8081/auth/login")
         print("=" * 60)
         
         async with httpx.AsyncClient() as client:
             auth_response = await client.post(
-                "http://auth-service:8005/auth/login",
+                "http://auth-service:8081/auth/login",
                 json=request.dict(),
                 timeout=10.0
             )

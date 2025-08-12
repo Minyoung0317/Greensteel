@@ -29,4 +29,4 @@ WORKDIR /app
 EXPOSE 8080
 
 # 애플리케이션 실행
-CMD ["sh", "-c", "python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
