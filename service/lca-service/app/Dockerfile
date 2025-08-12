@@ -17,5 +17,5 @@ COPY . .
 # 포트 노출
 EXPOSE 8084
 
-# 애플리케이션 실행 - 고정 포트 사용
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8084"]
+# 애플리케이션 실행 - Python 스크립트 사용
+CMD ["python", "start.py"]
