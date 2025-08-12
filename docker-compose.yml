@@ -54,7 +54,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - FRONTEND_ORIGIN=https://www.minyoung.cloud,https://minyoung.cloud,https://greensteel.vercel.app
-      - RAILWAY_ENVIRONMENT=false
+      - RAILWAY_ENVIRONMENT=true
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/greensteel
     depends_on:
       - postgres
@@ -89,7 +89,7 @@ services:
       - PYTHONUNBUFFERED=1
       - FRONTEND_ORIGIN=https://www.minyoung.cloud,https://minyoung.cloud,https://greensteel.vercel.app
       - AUTH_SERVICE_URL=http://auth-service:8081
-      - RAILWAY_ENVIRONMENT=false
+      - RAILWAY_ENVIRONMENT=true
     restart: always
     depends_on:
       - cbam-service

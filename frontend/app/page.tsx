@@ -71,7 +71,7 @@ export default function Home() {
         email,
         password
       }, {
-        withCredentials: true  // 쿠키 포함
+        withCredentials: false
       })
 
       console.log('=== 로그인 응답 ===')
@@ -135,12 +135,12 @@ export default function Home() {
           ? 'https://greensteel-gateway-production-eeb5.up.railway.app'  // 실제 Railway Gateway URL
           : 'http://localhost:8080')
       
-      const response = await axios.post(`${apiBaseUrl}/api/v1/auth/signup`, {
-        email,
-        password
-      }, {
-        withCredentials: false  // 임시로 false로 설정
-      })
+             const response = await axios.post(`${apiBaseUrl}/api/v1/auth/signup`, {
+         email,
+         password
+       }, {
+         withCredentials : false
+       })
 
       console.log('=== 회원가입 응답 ===')
       console.log('응답 상태:', response.status)
@@ -194,7 +194,7 @@ export default function Home() {
           : 'http://localhost:8080')
       
       const response = await axios.post(`${apiBaseUrl}/api/v1/auth/logout`, {}, {
-        withCredentials: true  // 쿠키 포함
+        withCredentials: false
       })
 
       console.log('=== 로그아웃 응답 ===')

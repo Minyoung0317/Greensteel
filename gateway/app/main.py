@@ -30,6 +30,9 @@ from app.common.utility.factory.response_factory import ResponseFactory
 if os.getenv("RAILWAY_ENVIRONMENT") != "true":
     load_dotenv()
 
+# Railway 환경 감지 개선
+RAILWAY_ENV = os.getenv("RAILWAY_ENVIRONMENT", "false").lower() == "true"
+
 # 로깅
 logging.basicConfig(
     level=logging.INFO,
@@ -47,7 +50,7 @@ FILE_REQUIRED_SERVICES: set[ServiceType] = set()
 async def lifespan(app: FastAPI):
     logger.info("🚀 Gateway API 서비스 시작")
     logger.info(
-        f"환경: {'Railway' if os.getenv('RAILWAY_ENVIRONMENT') == 'true' else 'Local/Docker'}"
+        f"환경: {'Railway' if RAILWAY_ENV else 'Local/Docker'}"
     )
     logger.info(f"포트: {os.getenv('PORT', '8080')}")
     app.state.settings = Settings()
