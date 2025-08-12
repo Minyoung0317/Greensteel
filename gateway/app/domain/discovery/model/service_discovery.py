@@ -15,11 +15,11 @@ class ServiceDiscovery:
         self.service_type = service_type
         # Railway 환경에서는 환경변수에서 서비스 URL을 가져옴
         self.base_urls = {
-            ServiceType.CBAM: os.getenv("CBAM_SERVICE_URL", "http://cbam-service:8001"),
-            ServiceType.CHATBOT: os.getenv("CHATBOT_SERVICE_URL", "http://chatbot-service:8002"),
-            ServiceType.LCA: os.getenv("LCA_SERVICE_URL", "http://lca-service:8003"),
-            ServiceType.REPORT: os.getenv("REPORT_SERVICE_URL", "http://report-service:8004"),
-            ServiceType.AUTH: os.getenv("AUTH_SERVICE_URL", "http://auth-service:8005")
+            ServiceType.CBAM: os.getenv("CBAM_SERVICE_URL", "http://cbam-service:8082"),
+            ServiceType.CHATBOT: os.getenv("CHATBOT_SERVICE_URL", "http://chatbot-service:8083"),
+            ServiceType.LCA: os.getenv("LCA_SERVICE_URL", "http://lca-service:8084"),
+            ServiceType.REPORT: os.getenv("REPORT_SERVICE_URL", "http://report-service:8085"),
+            ServiceType.AUTH: os.getenv("AUTH_SERVICE_URL", "http://auth-service:8081")
         }
     
     async def request(
