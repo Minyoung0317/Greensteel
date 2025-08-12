@@ -13,9 +13,26 @@ class AuthMiddleware:
         self.secret_key = "your-secret-key"  # 실제로는 환경변수에서 가져와야 함
         self.algorithm = "HS256"
 
+
+
+    def _is_exempt_path(self, path: str) -> bool:
+        """인증이 제외되는 경로들"""
+        exempt_paths = [
+            "/docs",
+            "/redoc", 
+            "/openapi.json",
+            "/api/v1/auth/",  # 모든 auth 경로 예외 처리
+        ]
+        return any(path.startswith(exempt_path) for exempt_path in exempt_paths)
+
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             request = Request(scope, receive)
+            
+            # OPTIONS 요청 (CORS preflight)은 인증 제외
+            if request.method == "OPTIONS":
+                await self.app(scope, receive, send)
+                return
             
             # 헬스체크나 인증 관련 엔드포인트는 인증 제외
             if self._is_exempt_path(request.url.path):
@@ -29,16 +46,6 @@ class AuthMiddleware:
                 scope["headers"] = [(b"x-user-id", str(user_id).encode())]
             
         await self.app(scope, receive, send)
-
-    def _is_exempt_path(self, path: str) -> bool:
-        """인증이 제외되는 경로들"""
-        exempt_paths = [
-            "/docs",
-            "/redoc", 
-            "/openapi.json",
-            "/api/v1/auth/",  # 모든 auth 경로 예외 처리
-        ]
-        return any(path.startswith(exempt_path) for exempt_path in exempt_paths)
 
     async def _verify_token(self, request: Request) -> Optional[str]:
         """JWT 토큰 검증"""

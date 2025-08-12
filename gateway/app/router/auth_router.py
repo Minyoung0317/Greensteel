@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, Response, HTTPException
 from fastapi.responses import StreamingResponse
 import httpx
 import logging
+import os
 from typing import Dict, Any
 import json
 
@@ -11,6 +12,22 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # Auth Service URL 설정
 AUTH_SERVICE_URL = "http://auth-service:8081"
+
+def get_allowed_origins():
+    """환경변수 FRONTEND_ORIGIN에서 허용할 Origin 목록을 가져옴"""
+    origins_str = os.getenv("FRONTEND_ORIGIN", "")
+    if origins_str:
+        origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
+        return origins
+    else:
+        # 기본값 (개발 환경용)
+        return [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://frontend:3000",
+            "https://www.minyoung.cloud",
+            "https://minyoung.cloud",
+        ]
 
 async def forward_request_to_auth_service(
     request: Request,
@@ -60,21 +77,10 @@ async def forward_request_to_auth_service(
             else:
                 logger.info("🍪 Set-Cookie 응답 없음")
             
-            # CORS 헤더 추가 - Origin 기반 동적 설정
+            # CORS 헤더 추가 - 환경변수 기반 Origin 설정
             origin = request.headers.get("origin")
-            if origin and origin in [
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-                "http://frontend:3000",
-                "https://greensteel-48kl4yapx-bagm922-7953s-projects.vercel.app",
-                "https://www.minyoung.cloud",
-                "https://minyoung.cloud",
-                "https://greensteel.vercel.app",
-                "https://greensteel-gateway-production.up.railway.app",
-                "https://greensteel-gateway-production-eeb5.up.railway.app",
-                "https://greensteel-frontend.vercel.app",
-                "https://greensteel-gateway.railway.app",
-            ]:
+            allowed_origins = get_allowed_origins()
+            if origin and origin in allowed_origins:
                 response_headers["Access-Control-Allow-Origin"] = origin
             else:
                 response_headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
@@ -135,21 +141,10 @@ async def auth_proxy_options(request: Request, path: str):
     """
     OPTIONS 요청 처리 (CORS preflight)
     """
-    # Origin 기반 동적 설정
+    # 환경변수 기반 Origin 설정
     origin = request.headers.get("origin")
-    if origin and origin in [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://frontend:3000",
-        "https://greensteel-48kl4yapx-bagm922-7953s-projects.vercel.app",
-        "https://www.minyoung.cloud",
-        "https://minyoung.cloud",
-        "https://greensteel.vercel.app",
-        "https://greensteel-gateway-production.up.railway.app",
-        "https://greensteel-gateway-production-eeb5.up.railway.app",
-        "https://greensteel-frontend.vercel.app",
-        "https://greensteel-gateway.railway.app",
-    ]:
+    allowed_origins = get_allowed_origins()
+    if origin and origin in allowed_origins:
         allow_origin = origin
     else:
         allow_origin = "https://www.minyoung.cloud"

@@ -51,23 +51,49 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS 설정 - allow_credentials=True 시 와일드카드 금지
+# 환경변수에서 허용할 Origin 목록 가져오기
+def get_allowed_origins():
+    """
+    환경변수 FRONTEND_ORIGIN에서 허용할 Origin 목록을 가져옴
+    
+    환경변수 설정 예시:
+    - Railway: FRONTEND_ORIGIN=https://www.minyoung.cloud,https://minyoung.cloud,https://greensteel.vercel.app
+    - 로컬: FRONTEND_ORIGIN=http://localhost:3000,http://127.0.0.1:3000
+    
+    테스트 방법:
+    1. 로컬 테스트: curl -X OPTIONS http://localhost:8080/api/v1/auth/login -H "Origin: http://localhost:3000"
+    2. 프로덕션 테스트: curl -X OPTIONS https://gateway-url/api/v1/auth/login -H "Origin: https://www.minyoung.cloud"
+    3. 브라우저 테스트: https://www.minyoung.cloud에서 회원가입/로그인 시도
+    """
+    origins_str = os.getenv("FRONTEND_ORIGIN", "")
+    if origins_str:
+        # 콤마로 구분된 문자열을 리스트로 변환하고 공백 제거
+        origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
+        logger.info(f"🌐 허용된 Origin 목록: {origins}")
+        return origins
+    else:
+        # 기본값 (개발 환경용)
+        default_origins = [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://frontend:3000",
+            "https://www.minyoung.cloud",
+            "https://minyoung.cloud",
+        ]
+        logger.info(f"🌐 기본 Origin 목록 사용: {default_origins}")
+        return default_origins
+
+# CORS 설정 - 환경변수 기반, allow_credentials=True 시 와일드카드 금지
+# 
+# Railway 환경변수 설정:
+# FRONTEND_ORIGIN=https://www.minyoung.cloud,https://minyoung.cloud,https://greensteel.vercel.app
+#
+# 로컬 개발 환경변수 (.env):
+# FRONTEND_ORIGIN=http://localhost:3000,http://127.0.0.1:3000
+#
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # 로컬 접근
-        "http://127.0.0.1:3000",  # 로컬 IP 접근
-        "http://frontend:3000",   # Docker 내부 네트워크
-        "https://greensteel-48kl4yapx-bagm922-7953s-projects.vercel.app",  # Vercel 프론트엔드
-        "https://www.minyoung.cloud",  # 커스텀 도메인 (www)
-        "https://minyoung.cloud",  # 커스텀 도메인 (루트)
-        "https://greensteel.vercel.app",  # Vercel 도메인
-        "https://greensteel-gateway-production.up.railway.app",  # Railway Gateway
-        "https://greensteel-gateway-production-eeb5.up.railway.app",  # 실제 Railway Gateway
-        "https://greensteel-frontend.vercel.app",  # Vercel 프론트엔드
-        "https://greensteel-gateway.railway.app",  # Railway Gateway
-        "https://*.up.railway.app",  # Railway 서브도메인 (임시)
-    ],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,  # HttpOnly 쿠키 사용을 위해 필수
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
