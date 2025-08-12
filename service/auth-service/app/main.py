@@ -191,14 +191,3 @@ async def signup(request: SignupRequest):
         logger.error(f"Auth Service 회원가입 오류: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Auth Service 회원가입 중 오류가 발생했습니다: {str(e)}")
 
-# Railway 환경변수에서 포트 동적 처리
-if __name__ == "__main__":
-    import os
-    port = int(os.getenv("PORT", "8005"))
-    logger.info(f"🚀 Auth Service 시작 - 포트: {port}")
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=port,
-        reload=False  # Railway에서는 reload 비활성화
-    )

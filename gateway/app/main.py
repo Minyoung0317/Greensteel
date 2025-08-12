@@ -231,15 +231,5 @@ async def root():
     logger.info("🌈 Gateway API 서비스 시작")
     return {"message": "Gateway API", "version": "0.1.0"}
 
-# Railway 환경변수에서 포트 동적 처리
-if __name__ == "__main__":
-    import os
-    port = int(os.getenv("PORT", "8080"))
-    logger.info(f"🚀 Gateway 서비스 시작 - 포트: {port}")
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=port,
-        reload=False  # Railway에서는 reload 비활성화
-    )
+
 
