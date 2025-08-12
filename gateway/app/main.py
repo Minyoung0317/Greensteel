@@ -124,30 +124,24 @@ app = FastAPI(
 )
 
 # ---------------------------------------------------------------------
-# CORS: 프로덕션 도메인은 정확히, 프리뷰는 정규식으로 허용
+# CORS: 환경변수 기반 설정으로 개선
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "https://minyoung.cloud")
+
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3000", 
     "http://frontend:3000",   # Docker 내부 네트워크
-    "https://www.minyoung.cloud",  # + 끝 슬래시(/) 금지
-    "https://minyoung.cloud",      # + 끝 슬래시(/) 금지
-    "https://greensteel.vercel.app",  # + 끝 슬래시(/) 금지
+    "https://www.minyoung.cloud",
+    "https://minyoung.cloud",
+    "http://www.minyoung.cloud",  # HTTP 버전도 추가
+    "http://minyoung.cloud",      # HTTP 버전도 추가
+    "https://greensteel.vercel.app",
+    FRONTEND_ORIGIN  # 환경변수에서 가져온 값
 ]
 
 ALLOW_ORIGIN_REGEX = r"^https:\/\/[a-z0-9-]+\.vercel\.app$"  # 모든 Vercel 프리뷰 허용
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=ALLOW_ORIGIN_REGEX,
-    allow_credentials=True,  # 쿠키/세션 사용 시 True
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=86400,
-)
-
-# CORS 디버깅 미들웨어
+# CORS 디버깅 미들웨어 (CORS 미들웨어보다 먼저 실행되도록)
 @app.middleware("http")
 async def cors_debug_middleware(request: Request, call_next):
     """CORS 요청 디버깅을 위한 미들웨어"""
@@ -159,6 +153,7 @@ async def cors_debug_middleware(request: Request, call_next):
     logger.info(f"   Origin: {origin}")
     logger.info(f"   User-Agent: {request.headers.get('user-agent', 'NOT_SET')}")
     logger.info(f"   Allowed Origins: {ALLOWED_ORIGINS}")
+    logger.info(f"   FRONTEND_ORIGIN: {FRONTEND_ORIGIN}")
     
     if origin:
         is_allowed = origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin)
@@ -178,6 +173,18 @@ async def cors_debug_middleware(request: Request, call_next):
         logger.error(f"❌ 요청 처리 중 오류: {method} {path} - {str(e)}")
         raise
 
+# CORS 미들웨어 (디버깅 미들웨어 이후에 추가)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=ALLOW_ORIGIN_REGEX,
+    allow_credentials=True,  # 쿠키/세션 사용 시 True
+    allow_methods=["*"],  # 모든 메서드 허용
+    allow_headers=["*"],  # 모든 헤더 허용
+    expose_headers=["*"],  # 모든 헤더 노출
+    max_age=86400,
+)
+
 def _forward_headers(request: Request) -> Dict[str, str]:
     skip = {"host", "content-length"}
     return {k: v for k, v in request.headers.items() if k.lower() not in skip}
@@ -187,6 +194,24 @@ def _forward_headers(request: Request) -> Dict[str, str]:
 @app.get("/")
 async def root():
     return {"message": "GreenSteel Gateway API", "docs": "/docs", "version": "0.1.0"}
+
+@app.options("/")
+async def root_options(request: Request):
+    """루트 레벨 OPTIONS 요청 처리"""
+    logger.info(f"🌐 루트 OPTIONS 요청: {request.headers.get('Origin', 'NOT_SET')}")
+    origin = request.headers.get('Origin', FRONTEND_ORIGIN)
+    
+    return Response(
+        status_code=200,
+        headers={
+            'Access-Control-Allow-Origin': origin,
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control',
+            'Access-Control-Expose-Headers': 'Set-Cookie, Content-Length, Content-Type',
+            'Access-Control-Max-Age': '86400'
+        }
+    )
 
 @app.get("/healthz")
 async def health_check():
@@ -199,7 +224,8 @@ async def health_check():
         "environment_vars": {
             "RAILWAY_ENVIRONMENT": os.getenv("RAILWAY_ENVIRONMENT", "NOT_SET"),
             "PORT": os.getenv("PORT", "NOT_SET"),
-            "AUTH_SERVICE_URL": os.getenv("AUTH_SERVICE_URL", "NOT_SET")
+            "AUTH_SERVICE_URL": os.getenv("AUTH_SERVICE_URL", "NOT_SET"),
+            "FRONTEND_ORIGIN": FRONTEND_ORIGIN
         }
     }
 
@@ -221,7 +247,7 @@ async def proxy_options(service: ServiceType, path: str, request: Request):
     logger.info(f"   Access-Control-Request-Headers: {request.headers.get('Access-Control-Request-Headers', 'NOT_SET')}")
     logger.info(f"   User-Agent: {request.headers.get('User-Agent', 'NOT_SET')}")
     
-    origin = request.headers.get('Origin', 'https://www.minyoung.cloud')
+    origin = request.headers.get('Origin', FRONTEND_ORIGIN)
     
     # Origin 검증
     is_allowed = origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin)
@@ -237,14 +263,19 @@ async def proxy_options(service: ServiceType, path: str, request: Request):
     logger.info(f"✅ CORS Origin 허용: {origin}")
     logger.info(f"✅ OPTIONS 응답 헤더 설정 완료")
     
+    # 더 포괄적인 CORS 헤더 설정
+    response_headers = {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control',
+        'Access-Control-Expose-Headers': 'Set-Cookie, Content-Length, Content-Type',
+        'Access-Control-Max-Age': '86400'
+    }
+    
     return Response(
         status_code=200,
-        headers={
-            'Access-Control-Allow-Origin': origin,
-            'Access-Control-Allow-Credentials': 'true',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With'
-        }
+        headers=response_headers
     )
 
 # ---------------------------------------------------------------------
