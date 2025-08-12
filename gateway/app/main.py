@@ -125,7 +125,7 @@ app = FastAPI(
 
 # ---------------------------------------------------------------------
 # CORS: 환경변수 기반 설정으로 개선
-FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "https://minyoung.cloud")
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "https://www.minyoung.cloud")
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -138,6 +138,11 @@ ALLOWED_ORIGINS = [
     "https://greensteel.vercel.app",
     FRONTEND_ORIGIN  # 환경변수에서 가져온 값
 ]
+
+# 디버깅을 위한 로그 추가
+logger.info(f"🔧 CORS 설정 정보:")
+logger.info(f"   FRONTEND_ORIGIN: {FRONTEND_ORIGIN}")
+logger.info(f"   ALLOWED_ORIGINS: {ALLOWED_ORIGINS}")
 
 ALLOW_ORIGIN_REGEX = r"^https:\/\/[a-z0-9-]+\.vercel\.app$"  # 모든 Vercel 프리뷰 허용
 
@@ -179,11 +184,13 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_origin_regex=ALLOW_ORIGIN_REGEX,
     allow_credentials=True,  # 쿠키/세션 사용 시 True
-    allow_methods=["*"],  # 모든 메서드 허용
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],  # 명시적으로 허용
     allow_headers=["*"],  # 모든 헤더 허용
-    expose_headers=["*"],  # 모든 헤더 노출
+    expose_headers=["Set-Cookie", "Content-Length", "Content-Type"],  # 명시적으로 노출
     max_age=86400,
 )
+
+logger.info("✅ CORS 미들웨어 설정 완료")
 
 def _forward_headers(request: Request) -> Dict[str, str]:
     skip = {"host", "content-length"}
@@ -252,6 +259,7 @@ async def proxy_options(service: ServiceType, path: str, request: Request):
     # Origin 검증
     is_allowed = origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin)
     logger.info(f"   Origin Allowed: {is_allowed}")
+    logger.info(f"   Allowed Origins: {ALLOWED_ORIGINS}")
     
     if not is_allowed:
         logger.warning(f"⚠️ CORS Origin 차단: {origin}")
@@ -272,6 +280,8 @@ async def proxy_options(service: ServiceType, path: str, request: Request):
         'Access-Control-Expose-Headers': 'Set-Cookie, Content-Length, Content-Type',
         'Access-Control-Max-Age': '86400'
     }
+    
+    logger.info(f"📤 OPTIONS 응답 헤더: {response_headers}")
     
     return Response(
         status_code=200,

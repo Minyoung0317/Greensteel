@@ -67,6 +67,11 @@ export default function Home() {
           ? 'https://greensteel-gateway-production-eeb5.up.railway.app'  // 실제 Railway Gateway URL
           : 'http://localhost:8080')
       
+      console.log('=== API URL 디버깅 ===')
+      console.log('NEXT_PUBLIC_API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL)
+      console.log('NODE_ENV:', process.env.NODE_ENV)
+      console.log('최종 API URL:', apiBaseUrl)
+      
       const response = await axios.post(`${apiBaseUrl}/api/v1/auth/login`, {
         email,
         password
@@ -134,6 +139,11 @@ export default function Home() {
          (process.env.NODE_ENV === 'production' 
            ? 'https://greensteel-gateway-production-eeb5.up.railway.app'  // 실제 Railway Gateway URL
            : 'http://localhost:8080')
+       
+       console.log('=== API URL 디버깅 (회원가입) ===')
+       console.log('NEXT_PUBLIC_API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL)
+       console.log('NODE_ENV:', process.env.NODE_ENV)
+       console.log('최종 API URL:', apiBaseUrl)
        
                const response = await axios.post(`${apiBaseUrl}/api/v1/auth/signup`, {
          email,
