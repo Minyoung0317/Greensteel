@@ -15,7 +15,7 @@ from gateway.app.router.proxy_router import ProxyRouter
 
 
 # 환경 변수 설정
-PORT = 8080
+PORT = int(os.getenv("PORT", 8080))
 HOST = os.getenv("GATEWAY_HOST", "0.0.0.0")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

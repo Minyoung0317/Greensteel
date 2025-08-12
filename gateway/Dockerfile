@@ -28,5 +28,5 @@ WORKDIR /app
 # 포트 노출
 EXPOSE 8080
 
-# 애플리케이션 실행
-CMD ["python", "start.py"]
+# 애플리케이션 실행 - 환경변수 확장
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]

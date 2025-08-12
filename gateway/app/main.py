@@ -37,7 +37,7 @@ logger = logging.getLogger("gateway_api")
 async def lifespan(app: FastAPI):
     logger.info("🚀 Gateway API 서비스 시작")
     logger.info(f"환경: {'Railway' if os.getenv('RAILWAY_ENVIRONMENT') == 'true' else 'Local/Docker'}")
-    logger.info(f"포트: 8080")
+    logger.info(f"포트: {os.getenv('PORT', '8080')}")
     # Settings 초기화 및 앱 state에 등록
     app.state.settings = Settings()
     yield
