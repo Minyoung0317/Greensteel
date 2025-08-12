@@ -45,6 +45,14 @@ logger.info(f"   PORT: {os.getenv('PORT', 'NOT_SET')}")
 logger.info(f"   AUTH_SERVICE_URL: {os.getenv('AUTH_SERVICE_URL', 'NOT_SET')}")
 logger.info(f"   RAILWAY_ENV (계산됨): {RAILWAY_ENV}")
 
+# 환경변수 검증
+if RAILWAY_ENV:
+    auth_url = os.getenv('AUTH_SERVICE_URL')
+    if not auth_url:
+        logger.error("❌ Railway 환경에서 AUTH_SERVICE_URL이 설정되지 않음")
+    else:
+        logger.info(f"✅ AUTH_SERVICE_URL 설정됨: {auth_url}")
+
 # 로깅
 logging.basicConfig(
     level=logging.INFO,
@@ -191,6 +199,8 @@ async def proxy_post(
         # auth-service로 요청 전달
         # 환경변수에서 AUTH_SERVICE_URL 가져오기
         AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8081")
+        # 끝 슬래시 제거
+        AUTH_SERVICE_URL = AUTH_SERVICE_URL.rstrip('/')
         auth_url = f"{AUTH_SERVICE_URL}/auth/{path}"
         logger.info(f"🌐 Auth Service URL: {auth_url}")
         

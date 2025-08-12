@@ -25,6 +25,11 @@ class ServiceDiscovery:
             ServiceType.AUTH: os.getenv("AUTH_SERVICE_URL", "http://auth-service:8081")
         }
         
+        # 모든 URL에서 끝 슬래시 제거
+        for service_type, url in self.base_urls.items():
+            if url:
+                self.base_urls[service_type] = url.rstrip('/')
+        
         # Railway 환경 감지
         railway_env = os.getenv("RAILWAY_ENVIRONMENT", "false").lower() == "true"
         if railway_env:
