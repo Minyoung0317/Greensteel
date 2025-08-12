@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -8,8 +8,10 @@ import traceback
 import os
 import sys
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
+import secrets
+from typing import Optional, Dict, Any
 
 # httpx 로그를 현재 시간으로 설정
 os.environ['TZ'] = 'Asia/Seoul'
@@ -30,6 +32,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# CORS 설정 - allow_credentials=True 시 wildcard 금지
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -37,15 +40,16 @@ app.add_middleware(
         "http://localhost:8080",
         "https://www.minyoung.cloud",  # 커스텀 도메인 (www)
         "https://minyoung.cloud",      # 커스텀 도메인 (루트)
+        "https://greensteel.vercel.app",  # Vercel 도메인
+        "https://greensteel-gateway-production.up.railway.app",  # Railway Gateway
     ],
     allow_credentials=True,  # HttpOnly 쿠키 사용을 위해 필수
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
-
-
-
+# 세션 저장소 (실제로는 Redis나 Postgres 사용)
+sessions: Dict[str, Dict[str, Any]] = {}
 
 # Pydantic 모델 정의
 class LoginRequest(BaseModel):
@@ -68,10 +72,53 @@ class SignupResponse(BaseModel):
     timestamp: str
     user_data: dict
 
+class SessionData(BaseModel):
+    user_id: str
+    email: str
+    created_at: datetime
+    expires_at: datetime
+
 def get_current_time():
     """현재 시간을 한국 시간으로 반환"""
     korea_tz = pytz.timezone('Asia/Seoul')
     return datetime.now(korea_tz)
+
+def create_session_id() -> str:
+    """세션 ID 생성"""
+    return secrets.token_urlsafe(32)
+
+def create_session(user_id: str, email: str) -> str:
+    """새 세션 생성"""
+    session_id = create_session_id()
+    expires_at = get_current_time() + timedelta(hours=24)  # 24시간 유효
+    
+    sessions[session_id] = {
+        "user_id": user_id,
+        "email": email,
+        "created_at": get_current_time(),
+        "expires_at": expires_at
+    }
+    
+    logger.info(f"🔐 세션 생성: {session_id} for user: {email}")
+    return session_id
+
+def get_session(session_id: str) -> Optional[Dict[str, Any]]:
+    """세션 조회"""
+    if session_id not in sessions:
+        return None
+    
+    session = sessions[session_id]
+    if get_current_time() > session["expires_at"]:
+        del sessions[session_id]
+        return None
+    
+    return session
+
+def delete_session(session_id: str):
+    """세션 삭제"""
+    if session_id in sessions:
+        del sessions[session_id]
+        logger.info(f"🗑️ 세션 삭제: {session_id}")
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -86,108 +133,176 @@ async def log_requests(request: Request, call_next):
         raise
 
 @app.post("/auth/login")
-async def login(request: LoginRequest):
+async def login(request: LoginRequest, response: Response):
     """
-    로그인 처리 - Gateway에서 전달받은 사용자 데이터 처리
+    로그인 처리 - 세션 쿠키 기반
     """
     try:
         current_time = get_current_time()
         
         logger.info("=== Auth Service 로그인 처리 시작 ===")
-        logger.info(f"Gateway에서 전달받은 사용자 데이터: {request.dict()}")
+        logger.info(f"로그인 요청: {request.dict()}")
         
-        # Railway/Docker Desktop에서 로그 확인을 위한 콘솔 출력
-        print("=" * 60)
-        print("🔐 === Auth Service 로그인 데이터 로그 ===")
-        print("=" * 60)
-        print(f"🕐 현재 시간: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        print("📥 Gateway에서 전달받은 데이터:")
-        print("사용자 입력 데이터:", request.dict())
-        print("JSON 형태:", json.dumps(request.dict(), indent=2, ensure_ascii=False))
-        print("-" * 60)
+        # 실제로는 Postgres에서 사용자 검증
+        # 여기서는 간단한 검증 로직 사용
+        if not request.email or not request.password:
+            raise HTTPException(status_code=400, detail="이메일과 비밀번호를 입력해주세요")
         
-        # JSON 데이터 생성
-        login_data = {
-            "timestamp": current_time.isoformat(),
-            "userData": {
-                "email": request.email,
-                "password": request.password
-            }
-        }
+        # 사용자 검증 (실제로는 DB 조회)
+        user_id = f"user_{hash(request.email) % 10000}"
         
-        print("📝 Auth Service에서 생성한 로그인 데이터:")
-        print("로그인 데이터:", json.dumps(login_data, indent=2, ensure_ascii=False))
-        print("=" * 60)
+        # 세션 생성
+        session_id = create_session(user_id, request.email)
         
-        # JSON 파일로 저장 (선택사항)
-        log_dir = "/app/logs"
-        os.makedirs(log_dir, exist_ok=True)
-        
-        log_file = os.path.join(log_dir, f"auth_login_{current_time.strftime('%Y%m%d_%H%M%S')}.json")
-        with open(log_file, 'w', encoding='utf-8') as f:
-            json.dump(login_data, f, indent=2, ensure_ascii=False)
-        
-        return LoginResponse(
-            status="✅ success",
-            message="✅ Auth Service에서 로그인 성공! Docker Desktop에서 로그를 확인하세요.",
-            timestamp=current_time.isoformat(),
-            user_data=request.dict()
+        # HttpOnly 쿠키 설정
+        response.set_cookie(
+            key="session_id",
+            value=session_id,
+            httponly=True,
+            secure=True,  # HTTPS에서만 전송
+            samesite="lax",  # CSRF 방지
+            max_age=86400,  # 24시간
+            path="/"
         )
         
+        logger.info(f"🍪 세션 쿠키 설정: {session_id}")
+        
+        return LoginResponse(
+            status="success",
+            message="로그인이 완료되었습니다.",
+            timestamp=current_time.isoformat(),
+            user_data={
+                "user_id": user_id,
+                "email": request.email,
+                "session_id": session_id
+            }
+        )
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Auth Service 로그인 오류: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Auth Service 로그인 중 오류가 발생했습니다: {str(e)}")
+        logger.error(f"❌ 로그인 처리 중 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"로그인 처리 실패: {str(e)}")
 
 @app.post("/auth/signup")
 async def signup(request: SignupRequest):
     """
-    회원가입 처리 - Gateway에서 전달받은 사용자 데이터 처리
+    회원가입 처리
     """
     try:
         current_time = get_current_time()
         
         logger.info("=== Auth Service 회원가입 처리 시작 ===")
-        logger.info(f"Gateway에서 전달받은 사용자 데이터: {request.dict()}")
+        logger.info(f"회원가입 요청: {request.dict()}")
         
-        # Railway/Docker Desktop에서 로그 확인을 위한 콘솔 출력
-        print("=" * 60)
-        print("🔐 === Auth Service 회원가입 데이터 로그 ===")
-        print("=" * 60)
-        print(f"🕐 현재 시간: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        print("📥 Gateway에서 전달받은 데이터:")
-        print("사용자 입력 데이터:", request.dict())
-        print("JSON 형태:", json.dumps(request.dict(), indent=2, ensure_ascii=False))
-        print("-" * 60)
+        # 실제로는 Postgres에 사용자 저장
+        # 여기서는 간단한 처리
+        if not request.email or not request.password:
+            raise HTTPException(status_code=400, detail="이메일과 비밀번호를 입력해주세요")
         
-        # JSON 데이터 생성
-        signup_data = {
-            "timestamp": current_time.isoformat(),
-            "userData": {
-                "email": request.email,
-                "password": request.password
-            }
-        }
+        user_id = f"user_{hash(request.email) % 10000}"
         
-        print("📝 Auth Service에서 생성한 회원가입 데이터:")
-        print("회원가입 데이터:", json.dumps(signup_data, indent=2, ensure_ascii=False))
-        print("=" * 60)
-        
-        # JSON 파일로 저장 (선택사항)
+        # JSON 파일로 저장 (임시)
         log_dir = "/app/logs"
         os.makedirs(log_dir, exist_ok=True)
         
-        log_file = os.path.join(log_dir, f"auth_signup_{current_time.strftime('%Y%m%d_%H%M%S')}.json")
+        signup_data = {
+            "user_id": user_id,
+            "email": request.email,
+            "password": request.password,  # 실제로는 해시화
+            "created_at": current_time.isoformat()
+        }
+        
+        log_file = os.path.join(log_dir, f"signup_{current_time.strftime('%Y%m%d_%H%M%S')}.json")
         with open(log_file, 'w', encoding='utf-8') as f:
             json.dump(signup_data, f, indent=2, ensure_ascii=False)
         
+        logger.info(f"💾 사용자 데이터 저장: {log_file}")
+        
         return SignupResponse(
-            status="✅ success",
-            message="✅ Auth Service에서 회원가입 성공! Docker Desktop에서 로그를 확인하세요.",
+            status="success",
+            message="회원가입이 완료되었습니다.",
             timestamp=current_time.isoformat(),
-            user_data=request.dict()
+            user_data={
+                "user_id": user_id,
+                "email": request.email
+            }
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Auth Service 회원가입 오류: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Auth Service 회원가입 중 오류가 발생했습니다: {str(e)}")
+        logger.error(f"❌ 회원가입 처리 중 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"회원가입 처리 실패: {str(e)}")
+
+@app.post("/auth/logout")
+async def logout(request: Request, response: Response):
+    """
+    로그아웃 처리 - 세션 쿠키 삭제
+    """
+    try:
+        session_id = request.cookies.get("session_id")
+        
+        if session_id:
+            delete_session(session_id)
+            logger.info(f"🚪 로그아웃: 세션 {session_id} 삭제")
+        
+        # 쿠키 삭제
+        response.delete_cookie(
+            key="session_id",
+            path="/"
+        )
+        
+        return {"status": "success", "message": "로그아웃이 완료되었습니다."}
+        
+    except Exception as e:
+        logger.error(f"❌ 로그아웃 처리 중 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"로그아웃 처리 실패: {str(e)}")
+
+@app.get("/auth/verify")
+async def verify_session(request: Request):
+    """
+    세션 검증
+    """
+    try:
+        session_id = request.cookies.get("session_id")
+        
+        if not session_id:
+            raise HTTPException(status_code=401, detail="세션이 없습니다")
+        
+        session = get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=401, detail="유효하지 않은 세션입니다")
+        
+        logger.info(f"✅ 세션 검증 성공: {session_id}")
+        
+        return {
+            "status": "success",
+            "user_data": {
+                "user_id": session["user_id"],
+                "email": session["email"],
+                "created_at": session["created_at"].isoformat()
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 세션 검증 중 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"세션 검증 실패: {str(e)}")
+
+@app.get("/")
+async def root():
+    return {"message": "Auth Service is running", "endpoints": ["/auth/login", "/auth/signup", "/auth/logout", "/auth/verify"]}
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8081))
+    logger.info(f"🚀 Auth Service 시작 - 포트: {port}")
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=port,
+        reload=False,
+        log_level="info"
+    )
 

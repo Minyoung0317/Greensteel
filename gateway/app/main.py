@@ -12,7 +12,7 @@ import json
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 
-from app.router.auth_router import auth_router
+from app.router.auth_router import router as auth_router
 from app.router.user_router import router as user_router
 from app.router.chatbot_router import router as chatbot_router
 from app.www.google.jwt_auth_middleware import AuthMiddleware
@@ -51,7 +51,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS 설정 업데이트 - 모든 도메인 허용
+# CORS 설정 - allow_credentials=True 시 wildcard 금지
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -62,12 +62,10 @@ app.add_middleware(
         "https://www.minyoung.cloud",  # 커스텀 도메인 (www)
         "https://minyoung.cloud",  # 커스텀 도메인 (루트)
         "https://greensteel.vercel.app",  # Vercel 도메인
-        "https://*.vercel.app",  # Vercel 서브도메인
-        "https://*.railway.app",  # Railway 서브도메인
-        "*"  # 모든 도메인 허용 (개발 중)
+        "https://greensteel-gateway-production.up.railway.app",  # Railway Gateway
     ],
     allow_credentials=True,  # HttpOnly 쿠키 사용을 위해 필수
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

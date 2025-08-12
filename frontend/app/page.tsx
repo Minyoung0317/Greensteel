@@ -4,7 +4,7 @@ import { useState } from 'react'
 import axios from 'axios'
 
 export default function Home() {
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [mode, setMode] = useState<'login' | 'signup' | 'logout'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -67,9 +67,11 @@ export default function Home() {
           ? 'https://greensteel-gateway-production.up.railway.app'  // Railway Gateway URL
           : 'http://localhost:8080')
       
-      const response = await axios.post(`${apiBaseUrl}/api/v1/user/login`, {
+      const response = await axios.post(`${apiBaseUrl}/api/v1/auth/login`, {
         email,
         password
+      }, {
+        withCredentials: true  // 쿠키 포함
       })
 
       console.log('=== 로그인 응답 ===')
@@ -133,9 +135,11 @@ export default function Home() {
           ? 'https://greensteel-gateway-production.up.railway.app'  // Railway Gateway URL
           : 'http://localhost:8080')
       
-      const response = await axios.post(`${apiBaseUrl}/api/v1/user/signup`, {
+      const response = await axios.post(`${apiBaseUrl}/api/v1/auth/signup`, {
         email,
         password
+      }, {
+        withCredentials: true  // 쿠키 포함
       })
 
       console.log('=== 회원가입 응답 ===')
@@ -174,8 +178,60 @@ export default function Home() {
     }
   }
 
+  const handleLogout = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    setIsLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      console.log('=== 로그아웃 요청 시작 ===')
+
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 
+        (process.env.NODE_ENV === 'production' 
+          ? 'https://greensteel-gateway-production.up.railway.app'
+          : 'http://localhost:8080')
+      
+      const response = await axios.post(`${apiBaseUrl}/api/v1/auth/logout`, {}, {
+        withCredentials: true  // 쿠키 포함
+      })
+
+      console.log('=== 로그아웃 응답 ===')
+      console.log('응답 상태:', response.status)
+      console.log('응답 데이터:', response.data)
+
+      const successMessage = response.data.message || '로그아웃 성공!'
+      setSuccess(successMessage)
+      
+      showNotification('GreenSteel 로그아웃', successMessage)
+      
+      // 입력 필드 초기화
+      setEmail('')
+      setPassword('')
+
+    } catch (err: any) {
+      console.log('=== 로그아웃 오류 ===')
+      console.log('오류 상태:', err.response?.status)
+      console.log('오류 데이터:', err.response?.data)
+
+      const errorMessage = err.response?.data?.detail || '로그아웃 중 오류가 발생했습니다.'
+      setError(errorMessage)
+      
+      showNotification('GreenSteel 로그아웃', errorMessage)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const switchMode = () => {
-    setMode(mode === 'login' ? 'signup' : 'login')
+    if (mode === 'login') {
+      setMode('signup')
+    } else if (mode === 'signup') {
+      setMode('logout')
+    } else {
+      setMode('login')
+    }
     setEmail('')
     setPassword('')
     setConfirmPassword('')
@@ -193,7 +249,7 @@ export default function Home() {
         <div className="w-1/2 p-10 flex flex-col justify-center">
           <h1 className="text-2xl font-bold text-gray-800 mb-6">Greensteel</h1>
 
-          <form onSubmit={mode === 'login' ? handleLogin : handleSignup}>
+          <form onSubmit={mode === 'login' ? handleLogin : mode === 'signup' ? handleSignup : handleLogout}>
             <input
               type="email"
               placeholder="이메일을 입력하세요."
@@ -231,6 +287,12 @@ export default function Home() {
               </div>
             )}
 
+            {mode === 'logout' && (
+              <div className="mb-4 p-3 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded">
+                로그아웃을 진행하시겠습니까?
+              </div>
+            )}
+
             {/* 에러 메시지 */}
             {error && (
               <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -250,7 +312,9 @@ export default function Home() {
               disabled={isLoading}
               className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? (mode === 'login' ? '로그인 중...' : '회원가입 중...') : (mode === 'login' ? '로그인' : '회원가입')}
+              {isLoading 
+                ? (mode === 'login' ? '로그인 중...' : mode === 'signup' ? '회원가입 중...' : '로그아웃 중...') 
+                : (mode === 'login' ? '로그인' : mode === 'signup' ? '회원가입' : '로그아웃')}
             </button>
           </form>
 
@@ -259,7 +323,7 @@ export default function Home() {
               onClick={switchMode}
               className="hover:underline text-green-600"
             >
-              {mode === 'login' ? '회원가입하기' : '로그인하기'}
+              {mode === 'login' ? '회원가입하기' : mode === 'signup' ? '로그아웃하기' : '로그인하기'}
             </button>
             {mode === 'login' && (
               <a href="#" className="hover:underline">

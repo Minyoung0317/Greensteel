@@ -36,8 +36,7 @@ class AuthMiddleware:
             "/docs",
             "/redoc", 
             "/openapi.json",
-            "/api/v1/auth/login",
-            "/api/v1/auth/verify"
+            "/api/v1/auth/",  # 모든 auth 경로 예외 처리
         ]
         return any(path.startswith(exempt_path) for exempt_path in exempt_paths)
 

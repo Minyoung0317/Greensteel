@@ -9,3 +9,7 @@ python-multipart==0.0.6
 starlette==0.27.0
 typing-extensions>=4.8.0
 pytz==2023.3
+# Postgres 연결
+asyncpg>=0.29.0
+sqlalchemy>=2.0.0
+alembic>=1.12.0
