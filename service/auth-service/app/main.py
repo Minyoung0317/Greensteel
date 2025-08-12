@@ -42,10 +42,13 @@ app.add_middleware(
         "https://minyoung.cloud",      # 커스텀 도메인 (루트)
         "https://greensteel.vercel.app",  # Vercel 도메인
         "https://greensteel-gateway-production.up.railway.app",  # Railway Gateway
+        "https://*.vercel.app",  # Vercel 서브도메인
+        "https://*.railway.app",  # Railway 서브도메인
     ],
     allow_credentials=True,  # HttpOnly 쿠키 사용을 위해 필수
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],  # 응답 헤더 노출
 )
 
 # 세션 저장소 (실제로는 Redis나 Postgres 사용)
@@ -159,10 +162,11 @@ async def login(request: LoginRequest, response: Response):
             key="session_id",
             value=session_id,
             httponly=True,
-            secure=True,  # HTTPS에서만 전송
+            secure=False,  # 개발 환경에서는 False, 프로덕션에서는 True
             samesite="lax",  # CSRF 방지
             max_age=86400,  # 24시간
-            path="/"
+            path="/",
+            domain=None  # 현재 도메인에서만 유효
         )
         
         logger.info(f"🍪 세션 쿠키 설정: {session_id}")
@@ -290,6 +294,22 @@ async def verify_session(request: Request):
     except Exception as e:
         logger.error(f"❌ 세션 검증 중 오류: {str(e)}")
         raise HTTPException(status_code=500, detail=f"세션 검증 실패: {str(e)}")
+
+@app.options("/{path:path}")
+async def options_handler(request: Request, path: str):
+    """
+    OPTIONS 요청 처리 (CORS preflight)
+    """
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
 
 @app.get("/")
 async def root():

@@ -47,6 +47,12 @@ async def forward_request_to_auth_service(
             # 응답 헤더 준비 (Set-Cookie 포함)
             response_headers = dict(response.headers)
             
+            # CORS 헤더 추가
+            response_headers["Access-Control-Allow-Origin"] = request.headers.get("origin", "*")
+            response_headers["Access-Control-Allow-Credentials"] = "true"
+            response_headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            response_headers["Access-Control-Allow-Headers"] = "*"
+            
             # 응답 생성
             return Response(
                 content=response.content,
@@ -92,3 +98,19 @@ async def auth_proxy_delete(request: Request, path: str):
     DELETE 요청도 Auth Service로 프록시
     """
     return await forward_request_to_auth_service(request, path, "DELETE")
+
+@router.options("/{path:path}")
+async def auth_proxy_options(request: Request, path: str):
+    """
+    OPTIONS 요청 처리 (CORS preflight)
+    """
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400",
+        }
+    )

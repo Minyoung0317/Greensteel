@@ -63,10 +63,13 @@ app.add_middleware(
         "https://minyoung.cloud",  # 커스텀 도메인 (루트)
         "https://greensteel.vercel.app",  # Vercel 도메인
         "https://greensteel-gateway-production.up.railway.app",  # Railway Gateway
+        "https://*.vercel.app",  # Vercel 서브도메인
+        "https://*.railway.app",  # Railway 서브도메인
     ],
     allow_credentials=True,  # HttpOnly 쿠키 사용을 위해 필수
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],  # 응답 헤더 노출
 )
 
 app.add_middleware(AuthMiddleware)
