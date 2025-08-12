@@ -250,7 +250,7 @@ async def proxy_post(
 ):
     # auth 서비스는 프록시로 처리
     if service == ServiceType.AUTH:
-        logger.info(f"🔐 AUTH 프록시 요청 시작: /{service}/{path}")
+        logger.info(f"🔐 AUTH 프록시 요청 시작: /auth/{path}")
         logger.info(f"📥 요청 헤더: {dict(request.headers)}")
         
         # 요청 바디 읽기

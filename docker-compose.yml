@@ -96,6 +96,7 @@ services:
       - PYTHONFAULTHANDLER=1
       - FRONTEND_ORIGIN=https://www.minyoung.cloud,https://minyoung.cloud,https://greensteel.vercel.app
       - RAILWAY_ENVIRONMENT=false
+      - AUTH_SERVICE_URL=http://auth-service:8081
     restart: always
     depends_on:
       - cbam-service

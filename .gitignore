@@ -37,6 +37,7 @@ docker-compose.override.yml
 # Logs
 *.log
 logs/
+*.json
 
 # Database
 *.db

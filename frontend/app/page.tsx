@@ -239,44 +239,58 @@ export default function Home() {
     setSuccess('')
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="w-full max-w-4xl bg-white shadow-xl rounded-xl flex overflow-hidden">
-        {/* 왼쪽 패널 - 그라데이션 배경 */}
-        <div className="w-1/2 bg-gradient-to-br from-green-600 to-green-800"></div>
+  const goToLogin = () => {
+    setMode('login')
+    setEmail('')
+    setPassword('')
+    setConfirmPassword('')
+    setError('')
+    setSuccess('')
+  }
 
-        {/* 로그인/회원가입 패널 */}
-        <div className="w-1/2 p-10 flex flex-col justify-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-6">Greensteel</h1>
+     return (
+     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+       <div className="w-full max-w-4xl bg-white shadow-xl rounded-xl flex flex-col md:flex-row overflow-hidden">
+         {/* 왼쪽 패널 - 그라데이션 배경 */}
+         <div className="hidden md:block md:w-1/2 bg-gradient-to-br from-green-600 to-green-800"></div>
+ 
+         {/* 로그인/회원가입 패널 */}
+         <div className="w-full md:w-1/2 p-6 md:p-10 flex flex-col justify-center">
+                     <h1 
+             className="text-3xl md:text-4xl font-bold text-gray-800 mb-6 cursor-pointer hover:text-green-600 transition-colors text-center md:text-left"
+             onClick={goToLogin}
+           >
+             Greensteel
+           </h1>
 
           <form onSubmit={mode === 'login' ? handleLogin : mode === 'signup' ? handleSignup : handleLogout}>
-            <input
-              type="email"
-              placeholder="이메일을 입력하세요."
-              value={email}
-              onChange={handleEmailChange}
-              className="border border-gray-300 rounded-lg px-4 py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-green-400"
-              disabled={isLoading}
-            />
-            <input
-              type="password"
-              placeholder="비밀번호를 입력하세요."
-              value={password}
-              onChange={handlePasswordChange}
-              className="border border-gray-300 rounded-lg px-4 py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-green-400"
-              disabled={isLoading}
-            />
+                         <input
+               type="email"
+               placeholder="이메일을 입력하세요."
+               value={email}
+               onChange={handleEmailChange}
+               className="border border-gray-300 rounded-lg px-4 py-3 md:py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-green-400 text-base"
+               disabled={isLoading}
+             />
+             <input
+               type="password"
+               placeholder="비밀번호를 입력하세요."
+               value={password}
+               onChange={handlePasswordChange}
+               className="border border-gray-300 rounded-lg px-4 py-3 md:py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-green-400 text-base"
+               disabled={isLoading}
+             />
             
-            {mode === 'signup' && (
-              <input
-                type="password"
-                placeholder="비밀번호를 다시 입력하세요."
-                value={confirmPassword}
-                onChange={handleConfirmPasswordChange}
-                className="border border-gray-300 rounded-lg px-4 py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-green-400"
-                disabled={isLoading}
-              />
-            )}
+                         {mode === 'signup' && (
+               <input
+                 type="password"
+                 placeholder="비밀번호를 다시 입력하세요."
+                 value={confirmPassword}
+                 onChange={handleConfirmPasswordChange}
+                 className="border border-gray-300 rounded-lg px-4 py-3 md:py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-green-400 text-base"
+                 disabled={isLoading}
+               />
+             )}
 
             {mode === 'login' && (
               <div className="flex items-center mb-4">
@@ -307,36 +321,33 @@ export default function Home() {
               </div>
             )}
 
-            <button 
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading 
-                ? (mode === 'login' ? '로그인 중...' : mode === 'signup' ? '회원가입 중...' : '로그아웃 중...') 
-                : (mode === 'login' ? '로그인' : mode === 'signup' ? '회원가입' : '로그아웃')}
-            </button>
+                         <button 
+               type="submit"
+               disabled={isLoading}
+               className="w-full bg-green-600 text-white py-3 md:py-2 rounded-lg font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-50 disabled:cursor-not-allowed text-base"
+             >
+               {isLoading 
+                 ? (mode === 'login' ? '로그인 중...' : mode === 'signup' ? '회원가입 중...' : '로그아웃 중...') 
+                 : (mode === 'login' ? '로그인' : mode === 'signup' ? '회원가입' : '로그아웃')}
+             </button>
           </form>
 
-          <div className="mt-6 flex justify-between text-sm text-gray-500">
-            <button 
-              onClick={switchMode}
-              className="hover:underline text-green-600"
-            >
-              {mode === 'login' ? '회원가입하기' : mode === 'signup' ? '로그아웃하기' : '로그인하기'}
-            </button>
-            {mode === 'login' && (
-              <a href="#" className="hover:underline">
-                비밀번호 찾기
-              </a>
-            )}
-          </div>
+                     {mode === 'login' && (
+             <div className="mt-2">
+               <button 
+                 onClick={switchMode}
+                 className="w-full bg-gray-100 text-gray-700 py-3 md:py-2 rounded-lg font-semibold hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 text-base"
+               >
+                 회원가입하기
+               </button>
+             </div>
+           )}
 
-          <div className="text-xs text-gray-400 mt-10">
-            최적의 솔루션 파트너는 GREENSTEEL입니다.
-            <br />
-            <span className="block mt-1"> https://www.minyoung.cloud/ | Tel : 010-2208-5322</span>
-          </div>
+                     <div className="text-xs text-gray-400 mt-8 md:mt-10 text-center md:text-left">
+             최적의 솔루션 파트너는 GREENSTEEL입니다.
+             <br />
+             <span className="block mt-1"> https://www.minyoung.cloud/ | Tel : 010-2208-5322</span>
+           </div>
         </div>
       </div>
     </div>
