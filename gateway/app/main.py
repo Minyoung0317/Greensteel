@@ -7,6 +7,8 @@ import os
 import logging
 import sys
 import uvicorn
+import datetime
+import json
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 
@@ -229,20 +231,3 @@ async def root():
     logger.info("🌈 Gateway API 서비스 시작")
     return {"message": "Gateway API", "version": "0.1.0"}
 
-# ✅ 서버 실행 - 환경 변수 처리 개선
-if __name__ == "__main__":
-    import datetime
-    import json
-    
-    # 포트 설정 개선
-    port_str = os.getenv("PORT", "8080")
-    try:
-        port = int(port_str)
-    except ValueError:
-        logger.error(f"잘못된 포트 값: {port_str}, 기본값 8080 사용")
-        port = 8080
-    
-    logger.info(f"🚀 Gateway 서비스 시작 - 포트: {port}")
-    logger.info(f"환경 변수 PORT: {os.getenv('PORT', '설정되지 않음')}")
-    
-    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)
