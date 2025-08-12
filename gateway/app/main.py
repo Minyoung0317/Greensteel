@@ -93,7 +93,7 @@ def _forward_headers(request: Request) -> Dict[str, str]:
     skip = {"host", "content-length"}
     return {k: v for k, v in request.headers.items() if k.lower() not in skip}
 
-# CORS 미들웨어 설정
+# CORS 미들웨어 설정 - 강화된 버전
 _allow_list, _allow_regex = _get_cors_config()
 logger.info(f"[Gateway CORS] Final allow_origins={_allow_list}")
 
@@ -105,7 +105,36 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"],
+    max_age=86400,  # preflight 캐시 시간
 )
+
+# ---------------------------------------------------------------------
+# 전역 OPTIONS 핸들러 (CORS preflight)
+@app.options("/{full_path:path}")
+async def global_options_handler(request: Request, full_path: str):
+    """전역 OPTIONS 요청 처리 (CORS preflight)"""
+    origin = request.headers.get("origin")
+    logger.info(f"[Global OPTIONS] Processing preflight for path: {full_path}, origin: {origin}")
+    
+    if origin:
+        _allow_list, _allow_regex = _get_cors_config()
+        if origin in _allow_list:
+            logger.info(f"[Global OPTIONS] Origin {origin} is allowed")
+            return Response(
+                status_code=200,
+                headers={
+                    "Access-Control-Allow-Origin": origin,
+                    "Access-Control-Allow-Credentials": "true",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "*",
+                    "Access-Control-Expose-Headers": "*",
+                    "Access-Control-Max-Age": "86400",
+                }
+            )
+        else:
+            logger.warning(f"[Global OPTIONS] Origin {origin} is not in allowed list: {_allow_list}")
+    
+    return Response(status_code=200)
 
 # ---------------------------------------------------------------------
 # 기본 루트 (헬스)

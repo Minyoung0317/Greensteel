@@ -86,18 +86,23 @@ async def forward_request_to_auth_service(
             else:
                 logger.info("🍪 Set-Cookie 응답 없음")
             
-            # CORS 헤더 추가 - 환경변수 기반 Origin 설정
+            # CORS 헤더 강화 - 환경변수 기반 Origin 설정
             origin = request.headers.get("origin")
             allowed_origins = get_allowed_origins()
+            logger.info(f"[Auth Router] Origin: {origin}, Allowed: {allowed_origins}")
+            
             if origin and origin in allowed_origins:
                 response_headers["Access-Control-Allow-Origin"] = origin
+                logger.info(f"[Auth Router] Setting CORS origin: {origin}")
             else:
                 response_headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
+                logger.warning(f"[Auth Router] Origin {origin} not in allowed list, using default")
             
             response_headers["Access-Control-Allow-Credentials"] = "true"
             response_headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
             response_headers["Access-Control-Allow-Headers"] = "*"
             response_headers["Access-Control-Expose-Headers"] = "*"
+            response_headers["Access-Control-Max-Age"] = "86400"
             
             # 응답 생성
             return Response(
