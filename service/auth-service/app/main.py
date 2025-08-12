@@ -42,6 +42,7 @@ app.add_middleware(
         "https://minyoung.cloud",      # 커스텀 도메인 (루트)
         "https://greensteel.vercel.app",  # Vercel 도메인
         "https://greensteel-gateway-production.up.railway.app",  # Railway Gateway
+        "https://greensteel-gateway-production-eeb5.up.railway.app",  # 실제 Railway Gateway
         "https://greensteel-frontend.vercel.app",  # Vercel 프론트엔드
         "https://greensteel-gateway.railway.app",  # Railway Gateway
     ],
@@ -309,6 +310,7 @@ async def options_handler(request: Request, path: str):
         "https://minyoung.cloud",
         "https://greensteel.vercel.app",
         "https://greensteel-gateway-production.up.railway.app",
+        "https://greensteel-gateway-production-eeb5.up.railway.app",
         "https://greensteel-frontend.vercel.app",
         "https://greensteel-gateway.railway.app",
     ]:

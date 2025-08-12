@@ -71,6 +71,7 @@ async def forward_request_to_auth_service(
                 "https://minyoung.cloud",
                 "https://greensteel.vercel.app",
                 "https://greensteel-gateway-production.up.railway.app",
+                "https://greensteel-gateway-production-eeb5.up.railway.app",
                 "https://greensteel-frontend.vercel.app",
                 "https://greensteel-gateway.railway.app",
             ]:
@@ -145,6 +146,7 @@ async def auth_proxy_options(request: Request, path: str):
         "https://minyoung.cloud",
         "https://greensteel.vercel.app",
         "https://greensteel-gateway-production.up.railway.app",
+        "https://greensteel-gateway-production-eeb5.up.railway.app",
         "https://greensteel-frontend.vercel.app",
         "https://greensteel-gateway.railway.app",
     ]:

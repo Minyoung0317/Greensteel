@@ -64,7 +64,7 @@ export default function Home() {
       // 환경에 따른 API 엔드포인트 설정
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 
         (process.env.NODE_ENV === 'production' 
-          ? 'https://greensteel-gateway-production.up.railway.app'  // Railway Gateway URL
+          ? 'https://greensteel-gateway-production-eeb5.up.railway.app'  // 실제 Railway Gateway URL
           : 'http://localhost:8080')
       
       const response = await axios.post(`${apiBaseUrl}/api/v1/auth/login`, {
@@ -132,7 +132,7 @@ export default function Home() {
       // 환경에 따른 API 엔드포인트 설정
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 
         (process.env.NODE_ENV === 'production' 
-          ? 'https://greensteel-gateway-production.up.railway.app'  // Railway Gateway URL
+          ? 'https://greensteel-gateway-production-eeb5.up.railway.app'  // 실제 Railway Gateway URL
           : 'http://localhost:8080')
       
       const response = await axios.post(`${apiBaseUrl}/api/v1/auth/signup`, {
@@ -190,7 +190,7 @@ export default function Home() {
 
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 
         (process.env.NODE_ENV === 'production' 
-          ? 'https://greensteel-gateway-production.up.railway.app'
+          ? 'https://greensteel-gateway-production-eeb5.up.railway.app'
           : 'http://localhost:8080')
       
       const response = await axios.post(`${apiBaseUrl}/api/v1/auth/logout`, {}, {
