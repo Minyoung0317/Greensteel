@@ -127,21 +127,7 @@ async def root():
     }
 
 
-# 헬스 체크 엔드포인트
-@app.get("/health", tags=["Gateway"])
-async def health_check():
-    """
-    게이트웨이 헬스 체크
-    
-    게이트웨이 서비스의 현재 상태를 확인합니다.
-    """
-    return {
-        "status": "healthy",
-        "service": "gateway",
-        "environment": ENVIRONMENT,
-        "timestamp": datetime.now().isoformat(),
-        "version": "1.0.0"
-    }
+
 
 
 # 서비스 정보 엔드포인트
@@ -160,7 +146,6 @@ async def service_info():
         "features": [
             "Service Discovery",
             "Load Balancing", 
-            "Health Checking",
             "Request Proxy"
         ],
         "endpoints": {
@@ -168,12 +153,10 @@ async def service_info():
                 "register": "POST /discovery/register",
                 "unregister": "DELETE /discovery/unregister/{service_name}/{instance_id}",
                 "services": "GET /discovery/services",
-                "service_instances": "GET /discovery/services/{service_name}",
-                "health_update": "PUT /discovery/health/{service_name}/{instance_id}"
+                "service_instances": "GET /discovery/services/{service_name}"
             },
             "proxy": {
-                "forward": "ALL /proxy/{service_name}/{path}",
-                "health_check": "GET /proxy/health/{service_name}"
+                "forward": "ALL /proxy/{service_name}/{path}"
             }
         },
         "documentation": {

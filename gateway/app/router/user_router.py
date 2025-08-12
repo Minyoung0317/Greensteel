@@ -175,7 +175,4 @@ async def login(request: LoginRequest):
         print(f"로그인 오류: {str(e)}")
         raise HTTPException(status_code=500, detail=f"로그인 중 오류가 발생했습니다: {str(e)}")
 
-@router.get("/health")
-async def user_health():
-    """사용자 서비스 상태 확인"""
-    return {"status": "healthy", "service": "user-service"}
+

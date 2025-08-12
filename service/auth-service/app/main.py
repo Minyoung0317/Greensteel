@@ -11,8 +11,6 @@ import json
 from datetime import datetime
 import pytz
 
-from app.router.user_router import auth_router
-
 # httpx 로그를 현재 시간으로 설정
 os.environ['TZ'] = 'Asia/Seoul'
 
@@ -45,8 +43,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 라우터 등록
-app.include_router(auth_router)
+
+
+
 
 # Pydantic 모델 정의
 class LoginRequest(BaseModel):

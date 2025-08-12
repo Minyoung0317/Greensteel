@@ -74,7 +74,7 @@ app.add_middleware(AuthMiddleware)
 # Frontend 정적 파일 서빙 (개발 모드에서는 Next.js dev server 사용)
 @app.get("/")
 async def root():
-    return {"message": "GreenSteel Gateway API", "docs": "/docs", "status": "healthy"}
+    return {"message": "GreenSteel Gateway API", "docs": "/docs"}
 
 gateway_router = APIRouter(prefix="/api/v1", tags=["Gateway API"])
 gateway_router.include_router(auth_router)
@@ -85,9 +85,7 @@ app.include_router(gateway_router)
 # 🪡🪡🪡 파일이 필요한 서비스 목록 (현재는 없음)
 FILE_REQUIRED_SERVICES = set()
 
-@gateway_router.post("/health", summary="테스트 엔드포인트")
-async def health_check():
-    return {"status": "healthy!", "method": "POST only"}
+
 
 # GET 프록시 제거 - POST 방식만 지원
 

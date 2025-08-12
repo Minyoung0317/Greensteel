@@ -47,7 +47,4 @@ async def process_message(request: ChatbotRequest):
         logger.error(f"채팅봇 처리 중 오류: {str(e)}")
         raise HTTPException(status_code=500, detail=f"메시지 처리 중 오류가 발생했습니다: {str(e)}")
 
-@router.get("/health")
-async def chatbot_health():
-    """채팅봇 서비스 상태 확인"""
-    return {"status": "healthy", "service": "chatbot-router"}
+

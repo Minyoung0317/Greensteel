@@ -22,9 +22,7 @@ app.add_middleware(
 async def root():
     return {"message": "Chatbot Service is running"}
 
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "service": "chatbot-service"}
+
 
 if __name__ == "__main__":
     # Railway 환경에서는 PORT 환경 변수를 사용, 로컬에서는 8002 사용
