@@ -72,13 +72,18 @@ def get_allowed_origins():
         logger.info(f"🌐 허용된 Origin 목록: {origins}")
         return origins
     else:
-        # 기본값 (개발 환경용)
+        # 기본값 (프로덕션 환경용) - 환경변수가 없을 때도 작동하도록
         default_origins = [
             "http://localhost:3000",
             "http://127.0.0.1:3000",
             "http://frontend:3000",
             "https://www.minyoung.cloud",
             "https://minyoung.cloud",
+            "https://greensteel.vercel.app",
+            "https://greensteel-gateway-production.up.railway.app",
+            "https://greensteel-gateway-production-eeb5.up.railway.app",
+            "https://greensteel-frontend.vercel.app",
+            "https://greensteel-gateway.railway.app",
         ]
         logger.info(f"🌐 기본 Origin 목록 사용: {default_origins}")
         return default_origins
