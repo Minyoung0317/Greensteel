@@ -193,30 +193,3 @@ async def signup(request: SignupRequest):
 
 
 
-if __name__ == "__main__":
-    import os
-    
-    # Railway 환경에서는 PORT 환경 변수를 사용, 로컬에서는 8005 사용
-    if os.getenv("RAILWAY_ENVIRONMENT") == "true":
-        # Railway 환경에서는 할당된 포트 사용
-        port_str = os.getenv("PORT", "8005")
-        try:
-            port = int(port_str)
-        except ValueError:
-            logger.error(f"잘못된 포트 값: {port_str}, 기본값 8005 사용")
-            port = 8005
-    else:
-        # 로컬/Docker 환경에서는 8005 포트 사용
-        port = 8005
-    
-    logger.info(f"💻 Auth Service 시작 - 포트: {port}")
-    logger.info(f"환경: {'Railway' if os.getenv('RAILWAY_ENVIRONMENT') == 'true' else 'Local/Docker'}")
-    logger.info(f"환경 변수 PORT: {os.getenv('PORT', '설정되지 않음')}")
-    
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=port,
-        reload=False,  # Railway에서는 reload 비활성화
-        log_level="info"
-    )
