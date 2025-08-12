@@ -139,7 +139,7 @@ export default function Home() {
         email,
         password
       }, {
-        withCredentials: true  // 쿠키 포함
+        withCredentials: false  // 임시로 false로 설정
       })
 
       console.log('=== 회원가입 응답 ===')

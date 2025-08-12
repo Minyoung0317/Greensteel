@@ -13,6 +13,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from dotenv import load_dotenv
+import httpx
 
 # --- 프로젝트 내부 모듈 ---
 from app.router.user_router import router as user_router
@@ -81,9 +82,10 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_origin_regex=ALLOW_ORIGIN_REGEX,
     allow_credentials=True,  # 쿠키/세션 사용 시 True
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"],
+    max_age=86400,
 )
 
 def _forward_headers(request: Request) -> Dict[str, str]:
@@ -104,6 +106,36 @@ gateway_router.include_router(user_router)
 gateway_router.include_router(chatbot_router)
 
 # ---------------------------------------------------------------------
+# OPTIONS 요청 핸들러 (CORS preflight)
+@gateway_router.options("/{service}/{path:path}", summary="OPTIONS 프록시")
+async def proxy_options(
+    service: ServiceType,
+    path: str,
+    request: Request,
+):
+    logger.info(f"🔄 OPTIONS 프록시: 서비스={service}, 경로={path}")
+    
+    # CORS 헤더 설정
+    origin = request.headers.get("origin")
+    headers = {}
+    
+    if origin:
+        if origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin):
+            headers["Access-Control-Allow-Origin"] = origin
+        else:
+            headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
+    else:
+        headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
+    
+    headers["Access-Control-Allow-Credentials"] = "true"
+    headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+    headers["Access-Control-Expose-Headers"] = "Set-Cookie"
+    headers["Access-Control-Max-Age"] = "86400"
+    
+    return Response(status_code=200, headers=headers)
+
+# ---------------------------------------------------------------------
 # 동적 프록시 (POST) - 세션 쿠키 전달/Set-Cookie 패스스루
 @gateway_router.post("/{service}/{path:path}", summary="POST 프록시")
 async def proxy_post(
@@ -113,9 +145,50 @@ async def proxy_post(
     file: Optional[UploadFile] = None,
     sheet_names: Optional[List[str]] = Query(None, alias="sheet_name"),
 ):
-    # auth 서비스는 직접 접근하므로 제외
+    # auth 서비스는 프록시로 처리
     if service == ServiceType.AUTH:
-        raise HTTPException(status_code=404, detail="Auth service should be accessed directly")
+        logger.info(f"🔐 AUTH 프록시 요청: /{service}/{path}")
+        # 요청 바디 읽기
+        body: bytes = await request.body()
+        # auth-service로 요청 전달
+        auth_url = f"http://auth-service:8081/auth/{path}"
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.request(
+                method="POST",
+                url=auth_url,
+                headers=_forward_headers(request),
+                content=body,
+                timeout=30.0
+            )
+            
+            # 응답 헤더 준비 (Set-Cookie 포함)
+            response_headers = dict(response.headers)
+            
+            # CORS 헤더 추가
+            origin = request.headers.get("origin")
+            if origin:
+                # 정확한 origin 매칭
+                if origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin):
+                    response_headers["Access-Control-Allow-Origin"] = origin
+                else:
+                    response_headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
+            else:
+                response_headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
+            
+            response_headers["Access-Control-Allow-Credentials"] = "true"
+            response_headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            response_headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+            response_headers["Access-Control-Expose-Headers"] = "Set-Cookie"
+            response_headers["Access-Control-Max-Age"] = "86400"
+            
+            return Response(
+                content=response.content,
+                status_code=response.status_code,
+                headers=response_headers,
+                media_type=response.headers.get("content-type", "application/json")
+            )
+    
     try:
         logger.info(f"🌈 POST 프록시: 서비스={service}, 경로={path}")
         body: bytes = await request.body()
