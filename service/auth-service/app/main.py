@@ -192,10 +192,7 @@ async def signup(request: SignupRequest):
         logger.error(f"Auth Service 회원가입 오류: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Auth Service 회원가입 중 오류가 발생했습니다: {str(e)}")
 
-@app.get("/auth/health")
-async def auth_health():
-    """Auth Service 상태 확인"""
-    return {"status": "healthy", "service": "auth-service"}
+
 
 if __name__ == "__main__":
     import os
