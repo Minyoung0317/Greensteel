@@ -49,7 +49,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS 설정 업데이트 - Railway 도메인 추가
+# CORS 설정 업데이트 - 모든 도메인 허용
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -57,9 +57,12 @@ app.add_middleware(
         "http://127.0.0.1:3000",  # 로컬 IP 접근
         "http://frontend:3000",   # Docker 내부 네트워크
         "https://greensteel-48kl4yapx-bagm922-7953s-projects.vercel.app",  # Vercel 프론트엔드
-        "https://www.minyoung.cloud",  # 커스텀 도메인
-        "https://minyoung.cloud",  # 커스텀 도메인
-        "*"  # 개발 중에는 모든 도메인 허용
+        "https://www.minyoung.cloud",  # 커스텀 도메인 (www)
+        "https://minyoung.cloud",  # 커스텀 도메인 (루트)
+        "https://greensteel.vercel.app",  # Vercel 도메인
+        "https://*.vercel.app",  # Vercel 서브도메인
+        "https://*.railway.app",  # Railway 서브도메인
+        "*"  # 모든 도메인 허용 (개발 중)
     ],
     allow_credentials=True,  # HttpOnly 쿠키 사용을 위해 필수
     allow_methods=["*"],
