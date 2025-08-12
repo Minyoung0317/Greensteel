@@ -2,9 +2,7 @@ from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 import os
 import sys
-import json
 import logging
-import datetime as dt
 import re
 
 from fastapi import (
@@ -116,6 +114,30 @@ async def proxy_options(
     path: str,
     request: Request,
 ):
+    # auth 서비스는 프록시로 처리
+    if service == ServiceType.AUTH:
+        logger.info(f"🔄 AUTH OPTIONS 프록시: /{service}/{path}")
+        
+        # CORS 헤더 설정 (Gateway에서 처리)
+        origin = request.headers.get("origin")
+        headers = {}
+        
+        if origin:
+            if origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin):
+                headers["Access-Control-Allow-Origin"] = origin
+            else:
+                headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
+        else:
+            headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
+        
+        headers["Access-Control-Allow-Credentials"] = "true"
+        headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+        headers["Access-Control-Expose-Headers"] = "Set-Cookie"
+        headers["Access-Control-Max-Age"] = "86400"
+        
+        return Response(status_code=200, headers=headers)
+    
     logger.info(f"🔄 OPTIONS 프록시: 서비스={service}, 경로={path}")
     
     # CORS 헤더 설정
@@ -156,6 +178,7 @@ async def proxy_post(
         # auth-service로 요청 전달
         auth_url = f"http://auth-service:8081/auth/{path}"
         
+        import httpx
         async with httpx.AsyncClient() as client:
             response = await client.request(
                 method="POST",
@@ -168,7 +191,7 @@ async def proxy_post(
             # 응답 헤더 준비 (Set-Cookie 포함)
             response_headers = dict(response.headers)
             
-            # CORS 헤더 추가
+            # CORS 헤더 추가 (Gateway에서 처리)
             origin = request.headers.get("origin")
             if origin:
                 # 정확한 origin 매칭
@@ -196,9 +219,7 @@ async def proxy_post(
         logger.info(f"🌈 POST 프록시: 서비스={service}, 경로={path}")
         body: bytes = await request.body()
 
-        # (선택) auth-service로 데이터 사용 로그 전송
-        if body:
-            await log_to_auth_service(service, path, body)
+
 
         factory = ServiceDiscovery(service_type=service)
 
@@ -242,27 +263,7 @@ async def proxy_post(
         logger.exception("POST 프록시 처리 중 오류")
         return JSONResponse(content={"detail": f"Gateway error: {str(e)}"}, status_code=500)
 
-# ---------------------------------------------------------------------
-# 유틸: auth-service로 데이터 로그 전달 (옵션)
-async def log_to_auth_service(service: ServiceType, path: str, body: bytes):
-    try:
-        auth_factory = ServiceDiscovery(service_type=ServiceType.AUTH)
-        log_data = {
-            "service": service.value if hasattr(service, "value") else str(service),
-            "path": path,
-            "data_size": len(body),
-            "timestamp": dt.datetime.utcnow().isoformat() + "Z",
-            "source": "gateway",
-        }
-        await auth_factory.request(
-            method="POST",
-            path="logs/data",
-            headers={"Content-Type": "application/json"},
-            body=json.dumps(log_data).encode("utf-8"),
-        )
-        logger.info(f"📊 데이터 로그 전송 완료: {service}/{path}")
-    except Exception as e:
-        logger.warning(f"auth-service 로그 전송 실패: {e}")
+
 
 # ---------------------------------------------------------------------
 # 라우터 등록

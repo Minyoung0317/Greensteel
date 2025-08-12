@@ -44,30 +44,8 @@ async def startup_event():
         logger.error(f"❌ 데이터베이스 초기화 실패: {str(e)}")
         # 데이터베이스 연결 실패해도 서비스는 계속 실행
 
-# CORS 설정 - 프로덕션 도메인은 정확히, 프리뷰는 정규식으로 허용
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://frontend:3000",   # Docker 내부 네트워크
-    "https://www.minyoung.cloud",  # + 끝 슬래시(/) 금지
-    "https://minyoung.cloud",      # + 끝 슬래시(/) 금지
-    "https://greensteel.vercel.app",  # + 끝 슬래시(/) 금지
-]
-
-ALLOW_ORIGIN_REGEX = r"^https:\/\/[a-z0-9-]+\.vercel\.app$"  # 모든 Vercel 프리뷰 허용
-
-# CORS 미들웨어 설정
-logger.info(f"[Auth Service CORS] allow_origins={ALLOWED_ORIGINS}")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=ALLOW_ORIGIN_REGEX,
-    allow_credentials=True,  # 쿠키/세션 사용 시 True
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-)
+# Auth Service는 내부 통신만 하므로 CORS 설정 불필요
+logger.info("🔒 Auth Service - 내부 통신만 처리 (CORS 설정 없음)")
 
 # Postgres 연결
 async def get_db_connection():
@@ -390,32 +368,7 @@ async def verify_session(request: Request):
         logger.error(f"❌ 세션 검증 중 오류: {str(e)}")
         raise HTTPException(status_code=500, detail=f"세션 검증 실패: {str(e)}")
 
-@app.options("/{path:path}")
-async def options_handler(request: Request, path: str):
-    """
-    OPTIONS 요청 처리 (CORS preflight)
-    """
-    # Origin 기반 설정
-    origin = request.headers.get("origin")
-    
-    if origin and origin in ALLOWED_ORIGINS:
-        allow_origin = origin
-    else:
-        allow_origin = "https://www.minyoung.cloud"
-    
-    logger.info(f"🔄 Auth Service OPTIONS 요청 처리: {path} from {origin}")
-    
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": allow_origin,
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Expose-Headers": "*",
-            "Access-Control-Max-Age": "86400",
-        }
-    )
+
 
 @app.get("/")
 async def root():

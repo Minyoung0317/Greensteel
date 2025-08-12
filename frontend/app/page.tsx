@@ -61,7 +61,7 @@ export default function Home() {
       console.log('=== 로그인 요청 시작 ===')
       console.log('요청 데이터:', { email, password })
 
-      // 환경에 따른 API 엔드포인트 설정
+      // 환경에 따른 API 엔드포인트 설정 (Gateway를 통해 Auth Service 호출)
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 
         (process.env.NODE_ENV === 'production' 
           ? 'https://greensteel-gateway-production-eeb5.up.railway.app'  // 실제 Railway Gateway URL
@@ -129,13 +129,13 @@ export default function Home() {
       console.log('=== 회원가입 요청 시작 ===')
       console.log('요청 데이터:', { email, password })
 
-      // 환경에 따른 API 엔드포인트 설정
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 
-        (process.env.NODE_ENV === 'production' 
-          ? 'https://greensteel-gateway-production-eeb5.up.railway.app'  // 실제 Railway Gateway URL
-          : 'http://localhost:8080')
-      
-             const response = await axios.post(`${apiBaseUrl}/api/v1/auth/signup`, {
+                         // 환경에 따른 API 엔드포인트 설정 (Gateway를 통해 Auth Service 호출)
+       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 
+         (process.env.NODE_ENV === 'production' 
+           ? 'https://greensteel-gateway-production-eeb5.up.railway.app'  // 실제 Railway Gateway URL
+           : 'http://localhost:8080')
+       
+               const response = await axios.post(`${apiBaseUrl}/api/v1/auth/signup`, {
          email,
          password
        }, {

@@ -88,7 +88,6 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - FRONTEND_ORIGIN=https://www.minyoung.cloud,https://minyoung.cloud,https://greensteel.vercel.app
-      - AUTH_SERVICE_URL=http://auth-service:8081
       - RAILWAY_ENVIRONMENT=true
     restart: always
     depends_on:
