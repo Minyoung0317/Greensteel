@@ -67,9 +67,13 @@ def get_cors_origins():
     logger.info(f"[Auth Service CORS] allow_origins={origins}")
     return origins
 
+# CORS 미들웨어를 앱 시작 시점에 추가
+cors_origins = get_cors_origins()
+logger.info(f"[Auth Service CORS] Final allow_origins={cors_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_cors_origins(),
+    allow_origins=cors_origins,
     allow_credentials=True,  # HttpOnly 쿠키 사용을 위해 필수
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],

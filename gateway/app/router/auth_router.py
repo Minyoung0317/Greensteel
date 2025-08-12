@@ -61,7 +61,7 @@ async def forward_request_to_auth_service(
         
         # Auth Service로 요청 전달
         async with httpx.AsyncClient() as client:
-            auth_url = f"{AUTH_SERVICE_URL}/{path}"
+            auth_url = f"{AUTH_SERVICE_URL}/auth/{path}"
             
             logger.info(f"🔄 Auth Service로 요청 전달: {method} {auth_url}")
             logger.info(f"📤 Origin: {request.headers.get('origin', 'N/A')}")
@@ -117,12 +117,25 @@ async def forward_request_to_auth_service(
         logger.error(f"❌ Auth Service 요청 전달 중 오류: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Auth Service 요청 처리 실패: {str(e)}")
 
-@router.post("/{path:path}")
-async def auth_proxy(request: Request, path: str):
-    """
-    /api/v1/auth/* 경로의 모든 요청을 Auth Service로 프록시
-    """
-    return await forward_request_to_auth_service(request, path, "POST")
+@router.post("/signup")
+async def auth_signup(request: Request):
+    """회원가입 요청을 Auth Service로 프록시"""
+    return await forward_request_to_auth_service(request, "signup", "POST")
+
+@router.post("/login")
+async def auth_login(request: Request):
+    """로그인 요청을 Auth Service로 프록시"""
+    return await forward_request_to_auth_service(request, "login", "POST")
+
+@router.post("/logout")
+async def auth_logout(request: Request):
+    """로그아웃 요청을 Auth Service로 프록시"""
+    return await forward_request_to_auth_service(request, "logout", "POST")
+
+@router.get("/verify")
+async def auth_verify(request: Request):
+    """세션 검증 요청을 Auth Service로 프록시"""
+    return await forward_request_to_auth_service(request, "verify", "GET")
 
 @router.get("/{path:path}")
 async def auth_proxy_get(request: Request, path: str):
@@ -145,8 +158,11 @@ async def auth_proxy_delete(request: Request, path: str):
     """
     return await forward_request_to_auth_service(request, path, "DELETE")
 
-@router.options("/{path:path}")
-async def auth_proxy_options(request: Request, path: str):
+@router.options("/signup")
+@router.options("/login")
+@router.options("/logout")
+@router.options("/verify")
+async def auth_proxy_options(request: Request):
     """
     OPTIONS 요청 처리 (CORS preflight)
     """
@@ -158,6 +174,7 @@ async def auth_proxy_options(request: Request, path: str):
     else:
         allow_origin = "https://www.minyoung.cloud"
     
+    path = request.url.path.split("/")[-1]  # 마지막 경로 부분 추출
     logger.info(f"🔄 OPTIONS 요청 처리: {path} from {origin}")
     
     return Response(

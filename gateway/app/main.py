@@ -1,4 +1,3 @@
-# gateway/app/main.py
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 import os
@@ -78,6 +77,7 @@ def _get_cors_config() -> tuple[list[str], str | None]:
         allow_list = [
             "http://localhost:3000",
             "http://127.0.0.1:3000",
+            "http://frontend:3000",   # Docker 내부 네트워크
             "https://www.minyoung.cloud",
             "https://minyoung.cloud",
             "https://greensteel.vercel.app",
@@ -93,83 +93,33 @@ def _forward_headers(request: Request) -> Dict[str, str]:
     skip = {"host", "content-length"}
     return {k: v for k, v in request.headers.items() if k.lower() not in skip}
 
-# ⭐ 미들웨어 순서 주의:
-# Starlette/FastAPI는 '마지막에 추가한' 미들웨어가 가장 바깥(먼저 실행)입니다.
-# → CORS 헤더가 프리플라이트/에러에도 항상 붙도록 '마지막'에 CORS를 추가합니다.
-# JWT 미들웨어 제거됨 - 웹 회원가입만 사용
-
+# CORS 미들웨어 설정
 _allow_list, _allow_regex = _get_cors_config()
+logger.info(f"[Gateway CORS] Final allow_origins={_allow_list}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allow_list,
     allow_origin_regex=_allow_regex,
     allow_credentials=True,  # 세션 쿠키 전달
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
-# ---------------------------------------------------------------------
 
+# ---------------------------------------------------------------------
 # 기본 루트 (헬스)
 @app.get("/")
 async def root():
     return {"message": "GreenSteel Gateway API", "docs": "/docs", "version": "0.1.0"}
 
-# 게이트웨이 라우터
+# Auth 라우터를 별도로 등록 (동적 프록시보다 우선순위)
+app.include_router(auth_router, prefix="/api/v1")
+
+# 게이트웨이 라우터 (다른 서비스용)
 gateway_router = APIRouter(prefix="/api/v1", tags=["Gateway API"])
-gateway_router.include_router(auth_router)
 gateway_router.include_router(user_router)
 gateway_router.include_router(chatbot_router)
-
-# ---------------------------------------------------------------------
-# /api/v1/auth 전용 프록시 (세션 쿠키/Set-Cookie 패스스루)
-@gateway_router.post("/auth/{path:path}", summary="Auth 전용 프록시 (POST)")
-async def auth_proxy(path: str, request: Request):
-    factory = ServiceDiscovery(service_type=ServiceType.AUTH)
-    body = await request.body()
-
-    logger.info(f"🔐 AUTH 프록시 요청: /auth/{path} (len={len(body) if body else 0})")
-
-    resp = await factory.request(
-        method="POST",
-        path=path,
-        headers=_forward_headers(request),
-        body=body,
-        cookies=request.cookies,  # ✅ 세션 쿠키 전달
-    )
-
-    out = ResponseFactory.create_response(resp)
-    # ✅ auth-service가 내려준 Set-Cookie 헤더를 그대로 전달
-    if "set-cookie" in resp.headers:
-        out.headers["set-cookie"] = resp.headers["set-cookie"]
-    
-    # CORS 헤더 추가
-    origin = request.headers.get("origin")
-    if origin:
-        out.headers["Access-Control-Allow-Origin"] = origin
-        out.headers["Access-Control-Allow-Credentials"] = "true"
-        out.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        out.headers["Access-Control-Allow-Headers"] = "*"
-        out.headers["Access-Control-Expose-Headers"] = "*"
-    
-    return out
-
-@gateway_router.options("/auth/{path:path}", summary="Auth 전용 프록시 (OPTIONS)")
-async def auth_proxy_options(path: str, request: Request):
-    """OPTIONS 요청 처리 (CORS preflight)"""
-    origin = request.headers.get("origin")
-    if origin:
-        return Response(
-            status_code=200,
-            headers={
-                "Access-Control-Allow-Origin": origin,
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Expose-Headers": "*",
-                "Access-Control-Max-Age": "86400",
-            }
-        )
-    return Response(status_code=200)
 
 # ---------------------------------------------------------------------
 # 동적 프록시 (POST) - 세션 쿠키 전달/Set-Cookie 패스스루
@@ -181,6 +131,9 @@ async def proxy_post(
     file: Optional[UploadFile] = None,
     sheet_names: Optional[List[str]] = Query(None, alias="sheet_name"),
 ):
+    # auth 서비스는 별도 라우터에서 처리하므로 제외
+    if service == ServiceType.AUTH:
+        raise HTTPException(status_code=404, detail="Auth service requests should use /auth endpoints")
     try:
         logger.info(f"🌈 POST 프록시: 서비스={service}, 경로={path}")
         body: bytes = await request.body()
