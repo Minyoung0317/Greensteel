@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # Auth Service URL 설정
-AUTH_SERVICE_URL = "http://auth-service:8081"
+AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8081")
 
 def get_allowed_origins():
     """환경변수 FRONTEND_ORIGIN에서 허용할 Origin 목록을 가져옴"""
@@ -48,6 +48,10 @@ async def forward_request_to_auth_service(
         
         # 요청 헤더 준비 (쿠키 포함)
         headers = dict(request.headers)
+        
+        # Host 헤더 제거 (auth-service로 전달할 때 문제가 될 수 있음)
+        if "host" in headers:
+            del headers["host"]
         
         # 쿠키 헤더 명시적 설정
         if "cookie" in headers:

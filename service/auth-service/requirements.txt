@@ -4,7 +4,7 @@ python-dotenv==1.0.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
 httpx==0.25.2
-PyJWT==2.8.0
+# PyJWT 제거됨 - 웹 회원가입만 사용
 python-multipart==0.0.6
 starlette==0.27.0
 typing-extensions>=4.8.0

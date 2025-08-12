@@ -16,10 +16,10 @@ from fastapi.responses import JSONResponse, Response
 from dotenv import load_dotenv
 
 # --- 프로젝트 내부 모듈 ---
-from app.router.auth_router import auth_router
+from app.router.auth_router import router as auth_router
 from app.router.user_router import router as user_router
 from app.router.chatbot_router import router as chatbot_router
-from app.www.google.jwt_auth_middleware import AuthMiddleware
+# JWT 미들웨어 제거됨 - 웹 회원가입만 사용
 from app.domain.discovery.model.service_discovery import ServiceDiscovery
 from app.domain.discovery.model.service_type import ServiceType
 from app.common.utility.constant.settings import Settings
@@ -72,6 +72,19 @@ app = FastAPI(
 def _get_cors_config() -> tuple[list[str], str | None]:
     raw = os.getenv("FRONTEND_ORIGIN", "")
     allow_list = [o.strip() for o in raw.split(",") if o.strip()]
+    
+    # 기본값 추가 (환경변수가 없을 때도 작동하도록)
+    if not allow_list:
+        allow_list = [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "https://www.minyoung.cloud",
+            "https://minyoung.cloud",
+            "https://greensteel.vercel.app",
+            "https://greensteel-gateway-production.up.railway.app",
+            "https://greensteel-gateway-production-eeb5.up.railway.app",
+        ]
+    
     regex_str = os.getenv("FRONTEND_ORIGIN_REGEX", "") or None
     logger.info(f"[CORS] allow_origins={allow_list}, allow_origin_regex={regex_str}")
     return allow_list, regex_str
@@ -83,12 +96,7 @@ def _forward_headers(request: Request) -> Dict[str, str]:
 # ⭐ 미들웨어 순서 주의:
 # Starlette/FastAPI는 '마지막에 추가한' 미들웨어가 가장 바깥(먼저 실행)입니다.
 # → CORS 헤더가 프리플라이트/에러에도 항상 붙도록 '마지막'에 CORS를 추가합니다.
-# 인증/로깅 등 다른 미들웨어가 있다면 먼저 추가하세요.
-try:
-    # 필요 시 예외 경로 처리는 미들웨어 내부에서 수행(/api/v1/auth/*, OPTIONS 등)
-    app.add_middleware(AuthMiddleware)
-except Exception as e:
-    logger.warning(f"AuthMiddleware 추가 중 경고: {e}")
+# JWT 미들웨어 제거됨 - 웹 회원가입만 사용
 
 _allow_list, _allow_regex = _get_cors_config()
 app.add_middleware(
@@ -133,7 +141,35 @@ async def auth_proxy(path: str, request: Request):
     # ✅ auth-service가 내려준 Set-Cookie 헤더를 그대로 전달
     if "set-cookie" in resp.headers:
         out.headers["set-cookie"] = resp.headers["set-cookie"]
+    
+    # CORS 헤더 추가
+    origin = request.headers.get("origin")
+    if origin:
+        out.headers["Access-Control-Allow-Origin"] = origin
+        out.headers["Access-Control-Allow-Credentials"] = "true"
+        out.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        out.headers["Access-Control-Allow-Headers"] = "*"
+        out.headers["Access-Control-Expose-Headers"] = "*"
+    
     return out
+
+@gateway_router.options("/auth/{path:path}", summary="Auth 전용 프록시 (OPTIONS)")
+async def auth_proxy_options(path: str, request: Request):
+    """OPTIONS 요청 처리 (CORS preflight)"""
+    origin = request.headers.get("origin")
+    if origin:
+        return Response(
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Expose-Headers": "*",
+                "Access-Control-Max-Age": "86400",
+            }
+        )
+    return Response(status_code=200)
 
 # ---------------------------------------------------------------------
 # 동적 프록시 (POST) - 세션 쿠키 전달/Set-Cookie 패스스루

@@ -53,6 +53,11 @@ services:
       - ./service/auth-service/.env
     environment:
       - PYTHONUNBUFFERED=1
+      - FRONTEND_ORIGIN=https://www.minyoung.cloud,https://minyoung.cloud,https://greensteel.vercel.app
+      - RAILWAY_ENVIRONMENT=false
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/greensteel
+    depends_on:
+      - postgres
     networks:
       - app-network
 
@@ -82,6 +87,9 @@ services:
       - ./gateway/.env
     environment:
       - PYTHONUNBUFFERED=1
+      - FRONTEND_ORIGIN=https://www.minyoung.cloud,https://minyoung.cloud,https://greensteel.vercel.app
+      - AUTH_SERVICE_URL=http://auth-service:8081
+      - RAILWAY_ENVIRONMENT=false
     restart: always
     depends_on:
       - cbam-service
@@ -95,6 +103,21 @@ services:
       - 8.8.4.4
     networks:
       - app-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      - POSTGRES_DB=greensteel
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    restart: always
 
   redis:
     image: redis:7-alpine
@@ -111,3 +134,6 @@ networks:
     ipam:
       config:
         - subnet: 172.25.0.0/16
+
+volumes:
+  postgres_data:
