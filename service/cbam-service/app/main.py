@@ -25,17 +25,11 @@ async def root():
 
 
 if __name__ == "__main__":
-    # Railway 환경에서는 PORT 환경 변수를 사용, 로컬에서는 8001 사용
-    port_str = os.getenv("PORT", "8001")
-    try:
-        port = int(port_str)
-    except ValueError:
-        logger.error(f"잘못된 포트 값: {port_str}, 기본값 8001 사용")
-        port = 8001
+    # 고정 포트 사용
+    port = 8082
     
     logger.info(f"🚀 CBAM Service 시작 - 포트: {port}")
     logger.info(f"환경: {'Railway' if os.getenv('RAILWAY_ENVIRONMENT') == 'true' else 'Local/Docker'}")
-    logger.info(f"환경 변수 PORT: {os.getenv('PORT', '설정되지 않음')}")
     
     uvicorn.run(
         "main:app",
