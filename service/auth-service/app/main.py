@@ -30,8 +30,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger("auth-service")
 
+# Railway 환경변수 디버깅
+logger.info(f"🔍 Auth Service Railway 환경변수 디버깅:")
+logger.info(f"   RAILWAY_ENVIRONMENT: {os.getenv('RAILWAY_ENVIRONMENT', 'NOT_SET')}")
+logger.info(f"   PORT: {os.getenv('PORT', 'NOT_SET')}")
+logger.info(f"   DATABASE_URL: {os.getenv('DATABASE_URL', 'NOT_SET')[:50]}..." if os.getenv('DATABASE_URL') else "NOT_SET")
+
 if os.getenv("RAILWAY_ENVIRONMENT") != "true":
     load_dotenv()
+
+# Railway 환경에서 로그 지속성 설정
+if os.getenv("RAILWAY_ENVIRONMENT", "false").lower() == "true":
+    logger.info("🚂 Railway 환경에서 로그 지속성 설정")
+    import sys
+    sys.stdout.flush()
+    sys.stderr.flush()
+    
+    # 모든 로거에 대해 강제 출력 설정
+    for handler in logging.getLogger().handlers:
+        handler.flush()
+    
+    logger.info("🔄 Auth Service Railway 로그 출력 강제 플러시 완료")
 
 app = FastAPI(
     title="Account Service API",
@@ -378,6 +397,30 @@ async def verify_session(request: Request):
 @app.get("/")
 async def root():
     return {"message": "Auth Service is running", "endpoints": ["/auth/login", "/auth/signup", "/auth/logout", "/auth/verify"]}
+
+@app.get("/healthz")
+async def health_check():
+    """헬스 체크 엔드포인트"""
+    try:
+        # 데이터베이스 연결 테스트
+        conn = await get_db_connection()
+        await conn.close()
+        db_status = "healthy"
+    except Exception as e:
+        db_status = f"unhealthy: {str(e)}"
+    
+    return {
+        "status": "healthy",
+        "service": "auth-service",
+        "database": db_status,
+        "timestamp": datetime.now().isoformat(),
+        "environment": "Railway" if os.getenv("RAILWAY_ENVIRONMENT") == "true" else "Local/Docker",
+        "environment_vars": {
+            "RAILWAY_ENVIRONMENT": os.getenv("RAILWAY_ENVIRONMENT", "NOT_SET"),
+            "PORT": os.getenv("PORT", "NOT_SET"),
+            "DATABASE_URL": "SET" if os.getenv("DATABASE_URL") else "NOT_SET"
+        }
+    }
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8081))

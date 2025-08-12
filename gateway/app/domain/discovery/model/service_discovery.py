@@ -1,7 +1,10 @@
 import httpx
 import os
+import logging
 from typing import Dict, Any, Optional
 from enum import Enum
+
+logger = logging.getLogger("service_discovery")
 
 class ServiceType(str, Enum):
     CBAM = "cbam"
@@ -21,6 +24,13 @@ class ServiceDiscovery:
             ServiceType.REPORT: os.getenv("REPORT_SERVICE_URL", "http://report-service:8085"),
             ServiceType.AUTH: os.getenv("AUTH_SERVICE_URL", "http://auth-service:8081")
         }
+        
+        # Railway 환경 감지
+        railway_env = os.getenv("RAILWAY_ENVIRONMENT", "false").lower() == "true"
+        if railway_env:
+            logger.info(f"🚂 Railway 환경 감지됨 - {service_type.value} 서비스 URL: {self.base_urls.get(service_type)}")
+        else:
+            logger.info(f"🐳 Docker 환경 - {service_type.value} 서비스 URL: {self.base_urls.get(service_type)}")
     
     async def request(
         self,
@@ -37,15 +47,28 @@ class ServiceDiscovery:
             raise ValueError(f"Unknown service type: {self.service_type}")
         
         url = f"{base_url}/{path}"
+        logger.info(f"🌐 서비스 요청: {method} {url}")
         
-        async with httpx.AsyncClient() as client:
-            response = await client.request(
-                method=method,
-                url=url,
-                headers=headers,
-                content=body,
-                files=files,
-                params=params,
-                data=data
-            )
-            return response
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.request(
+                    method=method,
+                    url=url,
+                    headers=headers,
+                    content=body,
+                    files=files,
+                    params=params,
+                    data=data,
+                    timeout=30.0
+                )
+                logger.info(f"✅ 서비스 응답: {response.status_code} - {url}")
+                return response
+        except httpx.ConnectError as e:
+            logger.error(f"❌ 서비스 연결 실패: {url} - {str(e)}")
+            raise
+        except httpx.TimeoutException as e:
+            logger.error(f"⏰ 서비스 요청 타임아웃: {url} - {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"❌ 서비스 요청 실패: {url} - {str(e)}")
+            raise

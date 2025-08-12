@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     CHATBOT_SERVICE_URL: str = "http://chatbot-service:8002"
     LCA_SERVICE_URL: str = "http://lca-service:8003"
     REPORT_SERVICE_URL: str = "http://report-service:8004"
+    AUTH_SERVICE_URL: str = "http://auth-service:8081"
     
     class Config:
         env_file = ".env"

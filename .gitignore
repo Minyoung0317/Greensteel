@@ -63,3 +63,8 @@ Thumbs.db
 dart_documents/
 dart_documents/extracted/  
 .vercel
+
+# Frontend build cache
+frontend/.next/
+frontend/out/
+frontend/node_modules/

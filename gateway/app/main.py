@@ -9,6 +9,7 @@ import os
 import sys
 import logging
 import re
+from datetime import datetime
 
 from fastapi import (
     FastAPI, APIRouter, Request, UploadFile, Query, HTTPException
@@ -36,13 +37,37 @@ if os.getenv("RAILWAY_ENVIRONMENT") != "true":
 # Railway 환경 감지 개선
 RAILWAY_ENV = os.getenv("RAILWAY_ENVIRONMENT", "false").lower() == "true"
 
+# Railway 환경변수 디버깅
+logger = logging.getLogger("gateway_api")
+logger.info(f"🔍 Railway 환경변수 디버깅:")
+logger.info(f"   RAILWAY_ENVIRONMENT: {os.getenv('RAILWAY_ENVIRONMENT', 'NOT_SET')}")
+logger.info(f"   PORT: {os.getenv('PORT', 'NOT_SET')}")
+logger.info(f"   AUTH_SERVICE_URL: {os.getenv('AUTH_SERVICE_URL', 'NOT_SET')}")
+logger.info(f"   RAILWAY_ENV (계산됨): {RAILWAY_ENV}")
+
 # 로깅
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
-logger = logging.getLogger("gateway_api")
+
+# Railway 환경에서 로그 레벨 강제 설정
+if os.getenv("RAILWAY_ENVIRONMENT", "false").lower() == "true":
+    logging.getLogger().setLevel(logging.INFO)
+    logger.setLevel(logging.INFO)
+    logger.info("🚂 Railway 환경에서 로깅 레벨을 INFO로 설정")
+    
+    # Railway에서 로그 지속성을 위한 추가 설정
+    import sys
+    sys.stdout.flush()
+    sys.stderr.flush()
+    
+    # 모든 로거에 대해 강제 출력 설정
+    for handler in logging.getLogger().handlers:
+        handler.flush()
+    
+    logger.info("🔄 Railway 로그 출력 강제 플러시 완료")
 
 # 파일이 필요한 서비스 (필요 시 채워서 사용)
 FILE_REQUIRED_SERVICES: set[ServiceType] = set()
@@ -104,6 +129,21 @@ def _forward_headers(request: Request) -> Dict[str, str]:
 async def root():
     return {"message": "GreenSteel Gateway API", "docs": "/docs", "version": "0.1.0"}
 
+@app.get("/healthz")
+async def health_check():
+    """헬스 체크 엔드포인트"""
+    return {
+        "status": "healthy",
+        "service": "gateway",
+        "timestamp": datetime.now().isoformat(),
+        "environment": "Railway" if RAILWAY_ENV else "Local/Docker",
+        "environment_vars": {
+            "RAILWAY_ENVIRONMENT": os.getenv("RAILWAY_ENVIRONMENT", "NOT_SET"),
+            "PORT": os.getenv("PORT", "NOT_SET"),
+            "AUTH_SERVICE_URL": os.getenv("AUTH_SERVICE_URL", "NOT_SET")
+        }
+    }
+
 # Auth 라우터 제거 - auth-service에서 직접 처리
 
 # 게이트웨이 라우터 (다른 서비스용)
@@ -141,54 +181,84 @@ async def proxy_post(
 ):
     # auth 서비스는 프록시로 처리
     if service == ServiceType.AUTH:
-        logger.info(f"🔐 AUTH 프록시 요청: /{service}/{path}")
+        logger.info(f"🔐 AUTH 프록시 요청 시작: /{service}/{path}")
+        logger.info(f"📥 요청 헤더: {dict(request.headers)}")
+        
         # 요청 바디 읽기
         body: bytes = await request.body()
+        logger.info(f"📦 요청 바디 크기: {len(body)} bytes")
+        
         # auth-service로 요청 전달
-        auth_url = f"http://auth-service:8081/auth/{path}"
+        # 환경변수에서 AUTH_SERVICE_URL 가져오기
+        AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8081")
+        auth_url = f"{AUTH_SERVICE_URL}/auth/{path}"
+        logger.info(f"🌐 Auth Service URL: {auth_url}")
         
         import httpx
-        async with httpx.AsyncClient() as client:
-            response = await client.request(
-                method="POST",
-                url=auth_url,
-                headers=_forward_headers(request),
-                content=body,
-                timeout=30.0
-            )
-            
-            # 응답 헤더 준비 (Set-Cookie 포함)
-            response_headers = dict(response.headers)
-            
-            # CORS 헤더 추가 (Gateway에서 처리)
-            origin = request.headers.get("origin")
-            if origin:
-                # 정확한 origin 매칭
-                if origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin):
-                    response_headers["Access-Control-Allow-Origin"] = origin
+        try:
+            async with httpx.AsyncClient() as client:
+                logger.info(f"🔄 Auth Service로 요청 전송 중...")
+                response = await client.request(
+                    method="POST",
+                    url=auth_url,
+                    headers=_forward_headers(request),
+                    content=body,
+                    timeout=30.0
+                )
+                
+                logger.info(f"✅ Auth Service 응답: {response.status_code}")
+                logger.info(f"📤 응답 헤더: {dict(response.headers)}")
+                
+                # 응답 헤더 준비 (Set-Cookie 포함)
+                response_headers = dict(response.headers)
+                
+                # CORS 헤더 추가 (Gateway에서 처리)
+                origin = request.headers.get("origin")
+                if origin:
+                    # 정확한 origin 매칭
+                    if origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin):
+                        response_headers["Access-Control-Allow-Origin"] = origin
+                    else:
+                        response_headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
                 else:
                     response_headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
-            else:
-                response_headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
-            
-            response_headers["Access-Control-Allow-Credentials"] = "true"
-            response_headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-            response_headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
-            response_headers["Access-Control-Expose-Headers"] = "Set-Cookie"
-            response_headers["Access-Control-Max-Age"] = "86400"
-            
-            return Response(
-                content=response.content,
-                status_code=response.status_code,
-                headers=response_headers,
-                media_type=response.headers.get("content-type", "application/json")
+                
+                response_headers["Access-Control-Allow-Credentials"] = "true"
+                response_headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+                response_headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+                response_headers["Access-Control-Expose-Headers"] = "Set-Cookie"
+                response_headers["Access-Control-Max-Age"] = "86400"
+                
+                logger.info(f"🔐 AUTH 프록시 요청 완료: {response.status_code}")
+                return Response(
+                    content=response.content,
+                    status_code=response.status_code,
+                    headers=response_headers,
+                    media_type=response.headers.get("content-type", "application/json")
+                )
+        except httpx.ConnectError as e:
+            logger.error(f"❌ Auth Service 연결 실패: {auth_url} - {str(e)}")
+            return JSONResponse(
+                content={"detail": f"Auth Service 연결 실패: {str(e)}"}, 
+                status_code=503
+            )
+        except httpx.TimeoutException as e:
+            logger.error(f"⏰ Auth Service 요청 타임아웃: {auth_url} - {str(e)}")
+            return JSONResponse(
+                content={"detail": f"Auth Service 요청 타임아웃: {str(e)}"}, 
+                status_code=504
+            )
+        except Exception as e:
+            logger.error(f"❌ Auth Service 요청 실패: {auth_url} - {str(e)}")
+            return JSONResponse(
+                content={"detail": f"Auth Service 요청 실패: {str(e)}"}, 
+                status_code=500
             )
     
     try:
-        logger.info(f"🌈 POST 프록시: 서비스={service}, 경로={path}")
+        logger.info(f"🌈 POST 프록시 시작: 서비스={service}, 경로={path}")
         body: bytes = await request.body()
-
-
+        logger.info(f"📦 요청 바디 크기: {len(body)} bytes")
 
         factory = ServiceDiscovery(service_type=service)
 
@@ -199,6 +269,7 @@ async def proxy_post(
 
         if service in FILE_REQUIRED_SERVICES:
             if "upload" in path and not file:
+                logger.error(f"❌ 파일 업로드 필요: 서비스 {service}")
                 raise HTTPException(
                     status_code=400, detail=f"서비스 {service}에는 파일 업로드가 필요합니다."
                 )
@@ -206,9 +277,12 @@ async def proxy_post(
                 file_content = await file.read()
                 files = {"file": (file.filename, file_content, file.content_type)}
                 await file.seek(0)
+                logger.info(f"📁 파일 업로드: {file.filename}")
             if sheet_names:
                 params = {"sheet_name": sheet_names}
+                logger.info(f"📋 시트 이름: {sheet_names}")
 
+        logger.info(f"🔄 서비스로 요청 전송 중...")
         resp = await factory.request(
             method="POST",
             path=path,
@@ -220,16 +294,21 @@ async def proxy_post(
             cookies=request.cookies,  # ✅ 세션 쿠키 전달
         )
 
+        logger.info(f"✅ 서비스 응답: {resp.status_code}")
         out = ResponseFactory.create_response(resp)
         # ✅ Set-Cookie 패스스루
         if "set-cookie" in resp.headers:
             out.headers["set-cookie"] = resp.headers["set-cookie"]
+            logger.info(f"🍪 Set-Cookie 패스스루: {resp.headers['set-cookie']}")
+        
+        logger.info(f"🌈 POST 프록시 완료: {resp.status_code}")
         return out
 
     except HTTPException as he:
+        logger.error(f"❌ HTTP 예외: {he.status_code} - {he.detail}")
         return JSONResponse(content={"detail": he.detail}, status_code=he.status_code)
     except Exception as e:
-        logger.exception("POST 프록시 처리 중 오류")
+        logger.exception(f"❌ POST 프록시 처리 중 오류: {str(e)}")
         return JSONResponse(content={"detail": f"Gateway error: {str(e)}"}, status_code=500)
 
 
