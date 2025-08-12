@@ -39,8 +39,14 @@ logger.info(f"   DATABASE_URL: {os.getenv('DATABASE_URL', 'NOT_SET')[:50]}..." i
 if os.getenv("RAILWAY_ENVIRONMENT") != "true":
     load_dotenv()
 
+# Railway 환경 감지 개선
+RAILWAY_ENV = (
+    os.getenv("RAILWAY_ENVIRONMENT", "false").lower() == "true" or
+    os.getenv("RAILWAY_ENVIRONMENT", "").lower() == "production"
+)
+
 # Railway 환경에서 로그 지속성 설정
-if os.getenv("RAILWAY_ENVIRONMENT", "false").lower() == "true":
+if RAILWAY_ENV:
     logger.info("🚂 Railway 환경에서 로그 지속성 설정")
     import sys
     sys.stdout.flush()

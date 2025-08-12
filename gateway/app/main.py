@@ -35,7 +35,10 @@ if os.getenv("RAILWAY_ENVIRONMENT") != "true":
     load_dotenv()
 
 # Railway 환경 감지 개선
-RAILWAY_ENV = os.getenv("RAILWAY_ENVIRONMENT", "false").lower() == "true"
+RAILWAY_ENV = (
+    os.getenv("RAILWAY_ENVIRONMENT", "false").lower() == "true" or
+    os.getenv("RAILWAY_ENVIRONMENT", "").lower() == "production"
+)
 
 # Railway 환경변수 디버깅
 logger = logging.getLogger("gateway_api")
@@ -127,6 +130,30 @@ app.add_middleware(
     max_age=86400,
 )
 
+# CORS 디버깅 미들웨어
+@app.middleware("http")
+async def cors_debug_middleware(request: Request, call_next):
+    """CORS 요청 디버깅을 위한 미들웨어"""
+    origin = request.headers.get("origin")
+    method = request.method
+    
+    logger.info(f"🌐 CORS 디버깅: {method} {request.url.path}")
+    logger.info(f"   Origin: {origin}")
+    logger.info(f"   Allowed Origins: {ALLOWED_ORIGINS}")
+    
+    if origin:
+        is_allowed = origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin)
+        logger.info(f"   Origin Allowed: {is_allowed}")
+    
+    response = await call_next(request)
+    
+    # CORS 헤더 확인
+    cors_headers = {k: v for k, v in response.headers.items() if 'access-control' in k.lower()}
+    if cors_headers:
+        logger.info(f"   CORS Headers: {cors_headers}")
+    
+    return response
+
 def _forward_headers(request: Request) -> Dict[str, str]:
     skip = {"host", "content-length"}
     return {k: v for k, v in request.headers.items() if k.lower() not in skip}
@@ -164,8 +191,25 @@ gateway_router = APIRouter(prefix="/api/v1", tags=["Gateway API"])
 async def proxy_options(service: ServiceType, path: str, request: Request):
     """OPTIONS 요청을 처리합니다 (CORS preflight)."""
     logger.info(f"[PROXY >>] Method: OPTIONS, Service: {service.value}, Path: /{path}")
+    logger.info(f"🌐 OPTIONS 요청 CORS 디버깅:")
+    logger.info(f"   Origin: {request.headers.get('Origin', 'NOT_SET')}")
+    logger.info(f"   Access-Control-Request-Method: {request.headers.get('Access-Control-Request-Method', 'NOT_SET')}")
+    logger.info(f"   Access-Control-Request-Headers: {request.headers.get('Access-Control-Request-Headers', 'NOT_SET')}")
     
-    origin = request.headers.get('Origin', 'https://www.kimdonghee.com')
+    origin = request.headers.get('Origin', 'https://www.minyoung.cloud')
+    
+    # Origin 검증
+    is_allowed = origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin)
+    logger.info(f"   Origin Allowed: {is_allowed}")
+    
+    if not is_allowed:
+        logger.warning(f"⚠️ CORS Origin 차단: {origin}")
+        return Response(
+            status_code=403,
+            content="CORS Origin not allowed"
+        )
+    
+    logger.info(f"✅ CORS Origin 허용: {origin}")
     
     return Response(
         status_code=200,
