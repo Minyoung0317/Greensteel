@@ -1,3 +1,8 @@
+#!/usr/bin/env python3.11
+"""
+Gateway API - Python 3.11
+"""
+
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 import os
@@ -103,62 +108,26 @@ async def root():
 
 # 게이트웨이 라우터 (다른 서비스용)
 gateway_router = APIRouter(prefix="/api/v1", tags=["Gateway API"])
-gateway_router.include_router(user_router)
-gateway_router.include_router(chatbot_router)
+
 
 # ---------------------------------------------------------------------
 # OPTIONS 요청 핸들러 (CORS preflight)
 @gateway_router.options("/{service}/{path:path}", summary="OPTIONS 프록시")
-async def proxy_options(
-    service: ServiceType,
-    path: str,
-    request: Request,
-):
-    # auth 서비스는 프록시로 처리
-    if service == ServiceType.AUTH:
-        logger.info(f"🔄 AUTH OPTIONS 프록시: /{service}/{path}")
-        
-        # CORS 헤더 설정 (Gateway에서 처리)
-        origin = request.headers.get("origin")
-        headers = {}
-        
-        if origin:
-            if origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin):
-                headers["Access-Control-Allow-Origin"] = origin
-            else:
-                headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
-        else:
-            headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
-        
-        headers["Access-Control-Allow-Credentials"] = "true"
-        headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
-        headers["Access-Control-Expose-Headers"] = "Set-Cookie"
-        headers["Access-Control-Max-Age"] = "86400"
-        
-        return Response(status_code=200, headers=headers)
+async def proxy_options(service: ServiceType, path: str, request: Request):
+    """OPTIONS 요청을 처리합니다 (CORS preflight)."""
+    logger.info(f"[PROXY >>] Method: OPTIONS, Service: {service.value}, Path: /{path}")
     
-    logger.info(f"🔄 OPTIONS 프록시: 서비스={service}, 경로={path}")
+    origin = request.headers.get('Origin', 'https://www.kimdonghee.com')
     
-    # CORS 헤더 설정
-    origin = request.headers.get("origin")
-    headers = {}
-    
-    if origin:
-        if origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin):
-            headers["Access-Control-Allow-Origin"] = origin
-        else:
-            headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
-    else:
-        headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
-    
-    headers["Access-Control-Allow-Credentials"] = "true"
-    headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
-    headers["Access-Control-Expose-Headers"] = "Set-Cookie"
-    headers["Access-Control-Max-Age"] = "86400"
-    
-    return Response(status_code=200, headers=headers)
+    return Response(
+        status_code=200,
+        headers={
+            'Access-Control-Allow-Origin': origin,
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With'
+        }
+    )
 
 # ---------------------------------------------------------------------
 # 동적 프록시 (POST) - 세션 쿠키 전달/Set-Cookie 패스스루

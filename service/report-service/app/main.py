@@ -1,3 +1,8 @@
+#!/usr/bin/env python3.11
+"""
+Report Service - Python 3.11
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn

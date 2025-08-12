@@ -5,3 +5,4 @@ class ServiceType(str, Enum):
     CHATBOT = "chatbot"
     LCA = "lca"
     REPORT = "report"
+    AUTH = "auth"

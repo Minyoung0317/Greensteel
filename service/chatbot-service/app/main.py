@@ -1,3 +1,8 @@
+#!/usr/bin/env python3.11
+"""
+Chatbot Service - Python 3.11
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn

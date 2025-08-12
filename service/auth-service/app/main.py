@@ -1,3 +1,8 @@
+#!/usr/bin/env python3.11
+"""
+Auth Service - Python 3.11
+"""
+
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
