@@ -356,8 +356,10 @@ async def proxy_post(
         AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8081")
         # 끝 슬래시 제거
         AUTH_SERVICE_URL = AUTH_SERVICE_URL.rstrip('/')
-        auth_url = f"{AUTH_SERVICE_URL}/api/v1/auth/{path}"
+        auth_url = f"{AUTH_SERVICE_URL}/auth/{path}"
         logger.info(f"🌐 Auth Service URL: {auth_url}")
+        logger.info(f"🔧 AUTH_SERVICE_URL 환경변수: {os.getenv('AUTH_SERVICE_URL', 'NOT_SET')}")
+        logger.info(f"🔧 RAILWAY_ENVIRONMENT: {os.getenv('RAILWAY_ENVIRONMENT', 'NOT_SET')}")
         
         import httpx
         try:
