@@ -210,10 +210,14 @@ async def login(request: LoginRequest, response: Response):
             
             if not user:
                 await conn.close()
+                logger.warning(f"❌ 로그인 실패: 이메일 또는 비밀번호 불일치 - {request.email}")
                 raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다")
+            
+            logger.info(f"✅ 사용자 인증 성공: ID={user['id']}, Email={user['email']}")
             
             # 세션 ID 생성
             session_id = create_session_id()
+            logger.info(f"🔑 세션 ID 생성: {session_id}")
             
             # Postgres에 세션 저장
             await conn.execute(
@@ -226,6 +230,7 @@ async def login(request: LoginRequest, response: Response):
             )
             
             await conn.close()
+            logger.info(f"💾 세션 데이터베이스 저장 완료: UserID={user['id']}, SessionID={session_id}")
             
             # HttpOnly 쿠키 설정
             response.set_cookie(
@@ -240,6 +245,19 @@ async def login(request: LoginRequest, response: Response):
             )
             
             logger.info(f"🍪 세션 쿠키 설정: {session_id}")
+            
+            # 응답 데이터 로깅
+            response_data = {
+                "status": "success",
+                "message": "로그인이 완료되었습니다.",
+                "timestamp": current_time.isoformat(),
+                "user_data": {
+                    "user_id": user['id'],
+                    "email": user['email'],
+                    "session_id": session_id
+                }
+            }
+            logger.info(f"📤 로그인 응답 데이터: {response_data}")
             
             return LoginResponse(
                 status="success",
@@ -289,10 +307,14 @@ async def signup(request: SignupRequest):
             
             if existing_user:
                 await conn.close()
+                logger.warning(f"❌ 회원가입 실패: 이미 존재하는 이메일 - {request.email}")
                 raise HTTPException(status_code=400, detail="이미 존재하는 이메일입니다")
+            
+            logger.info(f"✅ 이메일 중복 확인 통과: {request.email}")
             
             # 비밀번호 해시화 (실제로는 bcrypt 사용 권장)
             password_hash = str(hash(request.password))
+            logger.info(f"🔐 비밀번호 해시화 완료: {request.email}")
             
             # 사용자 저장
             user = await conn.fetchrow(
@@ -307,6 +329,19 @@ async def signup(request: SignupRequest):
             await conn.close()
             
             logger.info(f"💾 사용자 저장 완료: {user['email']} (ID: {user['id']})")
+            
+            # 응답 데이터 로깅
+            response_data = {
+                "status": "success",
+                "message": "회원가입이 완료되었습니다.",
+                "timestamp": current_time.isoformat(),
+                "user_data": {
+                    "user_id": user['id'],
+                    "email": user['email'],
+                    "created_at": user['created_at'].isoformat()
+                }
+            }
+            logger.info(f"📤 회원가입 응답 데이터: {response_data}")
             
             return SignupResponse(
                 status="success",
@@ -337,25 +372,46 @@ async def logout(request: Request, response: Response):
     로그아웃 처리 - Postgres에서 세션 삭제
     """
     try:
+        current_time = get_current_time()
+        logger.info("🚀 === Auth Service 로그아웃 처리 시작 ===")
+        logger.info(f"⏰ 요청 시간: {current_time.isoformat()}")
+        
         session_id = request.cookies.get("session_id")
+        logger.info(f"🍪 세션 ID 확인: {session_id}")
         
         if session_id:
             # Postgres에서 세션 삭제
             try:
                 conn = await get_db_connection()
+                
+                # 세션 정보 조회 (삭제 전)
+                session_info = await conn.fetchrow(
+                    "SELECT user_id, email FROM sessions WHERE id = $1",
+                    session_id
+                )
+                
+                if session_info:
+                    logger.info(f"👤 로그아웃 사용자: UserID={session_info['user_id']}, Email={session_info['email']}")
+                
                 await conn.execute("DELETE FROM sessions WHERE id = $1", session_id)
                 await conn.close()
-                logger.info(f"🚪 로그아웃: 세션 {session_id} 삭제")
+                logger.info(f"🚪 로그아웃: 세션 {session_id} 삭제 완료")
             except Exception as db_error:
                 logger.error(f"❌ 세션 삭제 중 데이터베이스 오류: {str(db_error)}")
+        else:
+            logger.warning("⚠️ 로그아웃: 세션 ID가 없음")
         
         # 쿠키 삭제
         response.delete_cookie(
             key="session_id",
             path="/"
         )
+        logger.info("🍪 세션 쿠키 삭제 완료")
         
-        return {"status": "success", "message": "로그아웃이 완료되었습니다."}
+        response_data = {"status": "success", "message": "로그아웃이 완료되었습니다."}
+        logger.info(f"📤 로그아웃 응답 데이터: {response_data}")
+        
+        return response_data
         
     except Exception as e:
         logger.error(f"❌ 로그아웃 처리 중 오류: {str(e)}")
