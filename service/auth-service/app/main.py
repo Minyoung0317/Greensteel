@@ -112,6 +112,10 @@ logger.info("🔒 Auth Service - 내부 통신만 처리 (CORS 설정 없음)")
 MEMORY_USERS = {}
 MEMORY_SESSIONS = {}
 
+# 상수 정의
+DB_ERROR_MESSAGE = "데이터베이스 오류가 발생했습니다"
+EMAIL_EXISTS_MESSAGE = "이미 존재하는 이메일입니다"
+
 # Postgres 연결
 async def get_db_connection():
     """Postgres 데이터베이스 연결"""
@@ -321,7 +325,7 @@ async def login(request: LoginRequest, response: Response):
             except Exception as db_error:
                 await conn.close()
                 logger.error(f"❌ PostgreSQL 인증 실패: {str(db_error)}")
-                raise HTTPException(status_code=500, detail="데이터베이스 오류가 발생했습니다")
+                raise HTTPException(status_code=500, detail=DB_ERROR_MESSAGE)
             finally:
                 await conn.close()
             
@@ -394,7 +398,7 @@ async def signup(request: SignupRequest):
             # 이메일 중복 확인
             if request.email in MEMORY_USERS:
                 logger.warning(f"❌ 회원가입 실패: 이미 존재하는 이메일 - {request.email}")
-                raise HTTPException(status_code=400, detail="이미 존재하는 이메일입니다")
+                raise HTTPException(status_code=400, detail=EMAIL_EXISTS_MESSAGE)
             
             logger.info(f"✅ 이메일 중복 확인 통과: {request.email}")
             
@@ -433,7 +437,7 @@ async def signup(request: SignupRequest):
                 if existing_user:
                     await conn.close()
                     logger.warning(f"❌ 회원가입 실패: 이미 존재하는 이메일 - {request.email}")
-                    raise HTTPException(status_code=400, detail="이미 존재하는 이메일입니다")
+                    raise HTTPException(status_code=400, detail=EMAIL_EXISTS_MESSAGE)
                 
                 logger.info(f"✅ 이메일 중복 확인 통과: {request.email}")
                 
@@ -457,11 +461,11 @@ async def signup(request: SignupRequest):
                 
             except asyncpg.UniqueViolationError:
                 await conn.close()
-                raise HTTPException(status_code=400, detail="이미 존재하는 이메일입니다")
+                raise HTTPException(status_code=400, detail=EMAIL_EXISTS_MESSAGE)
             except Exception as db_error:
                 await conn.close()
                 logger.error(f"❌ PostgreSQL 회원가입 실패: {str(db_error)}")
-                raise HTTPException(status_code=500, detail="데이터베이스 오류가 발생했습니다")
+                raise HTTPException(status_code=500, detail=DB_ERROR_MESSAGE)
             
             # 응답 데이터 로깅
             response_data = {
@@ -587,7 +591,7 @@ async def verify_session(request: Request):
             
         except Exception as db_error:
             logger.error(f"❌ 데이터베이스 오류: {str(db_error)}")
-            raise HTTPException(status_code=500, detail="데이터베이스 오류가 발생했습니다")
+            raise HTTPException(status_code=500, detail=DB_ERROR_MESSAGE)
         
     except HTTPException:
         raise

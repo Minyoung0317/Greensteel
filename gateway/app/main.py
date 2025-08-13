@@ -238,6 +238,91 @@ def _forward_headers(request: Request) -> Dict[str, str]:
     skip = {"host", "content-length"}
     return {k: v for k, v in request.headers.items() if k.lower() not in skip}
 
+def _add_cors_headers(response_headers: dict, origin: str) -> dict:
+    """CORS 헤더를 응답 헤더에 추가"""
+    if origin and (origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin)):
+        response_headers["Access-Control-Allow-Origin"] = origin
+    else:
+        response_headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
+    
+    response_headers["Access-Control-Allow-Credentials"] = "true"
+    response_headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response_headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+    response_headers["Access-Control-Expose-Headers"] = "Set-Cookie"
+    response_headers["Access-Control-Max-Age"] = "86400"
+    return response_headers
+
+async def _handle_auth_service_request(path: str, request: Request) -> Response:
+    """Auth Service 요청 처리"""
+    logger.info(f"🚀 🔐 AUTH 프록시 요청 시작: /auth/{path}")
+    
+    body: bytes = await request.body()
+    AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8081").rstrip('/')
+    auth_url = f"{AUTH_SERVICE_URL}/auth/{path}"
+    
+    if not auth_url.startswith(('http://', 'https://')):
+        logger.error(f"❌ 잘못된 Auth Service URL 형식: {auth_url}")
+        return JSONResponse(content={"detail": f"잘못된 Auth Service URL: {auth_url}"}, status_code=500)
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.request(
+                method="POST", url=auth_url, headers=_forward_headers(request),
+                content=body, timeout=30.0
+            )
+            
+            response_headers = dict(response.headers)
+            origin = request.headers.get("origin")
+            response_headers = _add_cors_headers(response_headers, origin)
+            
+            return Response(
+                content=response.content, status_code=response.status_code,
+                headers=response_headers, media_type=response.headers.get("content-type", "application/json")
+            )
+    except httpx.ConnectError as e:
+        logger.error(f"❌ Auth Service 연결 실패: {auth_url} - {str(e)}")
+        return JSONResponse(content={"detail": f"Auth Service 연결 실패: {str(e)}"}, status_code=503)
+    except httpx.TimeoutException as e:
+        logger.error(f"⏰ Auth Service 요청 타임아웃: {auth_url} - {str(e)}")
+        return JSONResponse(content={"detail": f"Auth Service 요청 타임아웃: {str(e)}"}, status_code=504)
+    except Exception as e:
+        logger.error(f"❌ Auth Service 요청 실패: {auth_url} - {str(e)}")
+        return JSONResponse(content={"detail": f"Auth Service 요청 실패: {str(e)}"}, status_code=500)
+
+async def _handle_general_service_request(service: ServiceType, path: str, request: Request, 
+                                        file: Optional[UploadFile], sheet_names: Optional[List[str]]) -> Response:
+    """일반 서비스 요청 처리"""
+    logger.info(f"🌈 POST 프록시 시작: 서비스={service}, 경로={path}")
+    
+    body: bytes = await request.body()
+    factory = ServiceDiscovery(service_type=service)
+    headers = _forward_headers(request)
+    
+    files = None
+    params = None
+    
+    if service in FILE_REQUIRED_SERVICES:
+        if "upload" in path and not file:
+            raise HTTPException(status_code=400, detail=f"서비스 {service}에는 파일 업로드가 필요합니다.")
+        if file:
+            file_content = await file.read()
+            files = {"file": (file.filename, file_content, file.content_type)}
+            await file.seek(0)
+        if sheet_names:
+            params = {"sheet_name": sheet_names}
+    
+    resp = await factory.request(
+        method="POST", path=path, headers=headers,
+        body=body if files is None else None, files=files, params=params,
+        cookies=request.cookies
+    )
+    
+    out = ResponseFactory.create_response(resp)
+    if "set-cookie" in resp.headers:
+        out.headers["set-cookie"] = resp.headers["set-cookie"]
+    
+    return out
+
 # ---------------------------------------------------------------------
 # 기본 루트 (헬스)
 @app.get("/")
@@ -274,7 +359,7 @@ async def health_check():
             "RAILWAY_ENVIRONMENT": os.getenv("RAILWAY_ENVIRONMENT", "NOT_SET"),
             "PORT": os.getenv("PORT", "NOT_SET"),
             "AUTH_SERVICE_URL": os.getenv("AUTH_SERVICE_URL", "NOT_SET"),
-            "FRONTEND_ORIGIN": FRONTEND_ORIGIN
+            "FRONTEND_ORIGIN": FRONTEND_ORIGINS
         }
     }
 
@@ -296,7 +381,7 @@ async def proxy_options(service: ServiceType, path: str, request: Request):
     logger.info(f"   Access-Control-Request-Headers: {request.headers.get('Access-Control-Request-Headers', 'NOT_SET')}")
     logger.info(f"   User-Agent: {request.headers.get('User-Agent', 'NOT_SET')}")
     
-    origin = request.headers.get('Origin', FRONTEND_ORIGIN)
+    origin = request.headers.get('Origin', FRONTEND_ORIGINS)
     
     # Origin 검증
     is_allowed = origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin)
@@ -340,159 +425,11 @@ async def proxy_post(
     file: Optional[UploadFile] = None,
     sheet_names: Optional[List[str]] = Query(None, alias="sheet_name"),
 ):
-    # auth 서비스는 프록시로 처리
-    if service == ServiceType.AUTH:
-        logger.info(f"🚀 🔐 AUTH 프록시 요청 시작: /auth/{path}")
-        logger.info(f"📥 요청 헤더: {dict(request.headers)}")
-        logger.info(f"🌐 Origin: {request.headers.get('origin', 'NOT_SET')}")
-        logger.info(f"📋 Content-Type: {request.headers.get('content-type', 'NOT_SET')}")
-        
-        # 요청 바디 읽기
-        body: bytes = await request.body()
-        logger.info(f"📦 요청 바디 크기: {len(body)} bytes")
-        if body:
-            logger.info(f"📄 요청 바디 내용: {body.decode('utf-8', errors='ignore')}")
-        
-        # auth-service로 요청 전달
-        # 환경변수에서 AUTH_SERVICE_URL 가져오기
-        AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8081")
-        # 끝 슬래시 제거
-        AUTH_SERVICE_URL = AUTH_SERVICE_URL.rstrip('/')
-        auth_url = f"{AUTH_SERVICE_URL}/auth/{path}"
-        
-        # URL 검증
-        logger.info(f"🌐 Auth Service URL: {auth_url}")
-        logger.info(f"🔧 AUTH_SERVICE_URL 환경변수: {os.getenv('AUTH_SERVICE_URL', 'NOT_SET')}")
-        logger.info(f"🔧 RAILWAY_ENVIRONMENT: {os.getenv('RAILWAY_ENVIRONMENT', 'NOT_SET')}")
-        logger.info(f"🔧 URL 구성: {AUTH_SERVICE_URL} + /auth/{path} = {auth_url}")
-        
-        # Auth Service URL이 올바른 형식인지 확인
-        if not auth_url.startswith(('http://', 'https://')):
-            logger.error(f"❌ 잘못된 Auth Service URL 형식: {auth_url}")
-            return JSONResponse(
-                content={"detail": f"잘못된 Auth Service URL: {auth_url}"}, 
-                status_code=500
-            )
-        
-        import httpx
-        try:
-            # Auth Service 연결 테스트
-            logger.info("🔍 Auth Service 연결 테스트 시작...")
-            logger.info(f"🔍 테스트 URL: {auth_url}")
-            
-            async with httpx.AsyncClient() as client:
-                logger.info("🔄 Auth Service로 요청 전송 중...")
-                logger.info(f"🔄 요청 URL: {auth_url}")
-                logger.info(f"🔄 요청 헤더: {_forward_headers(request)}")
-                logger.info(f"🔄 요청 바디: {body.decode('utf-8', errors='ignore')}")
-                
-                response = await client.request(
-                    method="POST",
-                    url=auth_url,
-                    headers=_forward_headers(request),
-                    content=body,
-                    timeout=30.0
-                )
-                
-                logger.info(f"✅ Auth Service 응답: {response.status_code}")
-                logger.info(f"📤 응답 헤더: {dict(response.headers)}")
-                logger.info(f"📄 응답 내용: {response.content.decode('utf-8', errors='ignore')}")
-                
-                # 응답 헤더 준비 (Set-Cookie 포함)
-                response_headers = dict(response.headers)
-                
-                # CORS 헤더 추가 (Gateway에서 처리)
-                origin = request.headers.get("origin")
-                if origin:
-                    # 정확한 origin 매칭
-                    if origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin):
-                        response_headers["Access-Control-Allow-Origin"] = origin
-                    else:
-                        response_headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
-                else:
-                    response_headers["Access-Control-Allow-Origin"] = "https://www.minyoung.cloud"
-                
-                response_headers["Access-Control-Allow-Credentials"] = "true"
-                response_headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-                response_headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
-                response_headers["Access-Control-Expose-Headers"] = "Set-Cookie"
-                response_headers["Access-Control-Max-Age"] = "86400"
-                
-                logger.info(f"🔐 AUTH 프록시 요청 완료: {response.status_code}")
-                return Response(
-                    content=response.content,
-                    status_code=response.status_code,
-                    headers=response_headers,
-                    media_type=response.headers.get("content-type", "application/json")
-                )
-        except httpx.ConnectError as e:
-            logger.error(f"❌ Auth Service 연결 실패: {auth_url} - {str(e)}")
-            return JSONResponse(
-                content={"detail": f"Auth Service 연결 실패: {str(e)}"}, 
-                status_code=503
-            )
-        except httpx.TimeoutException as e:
-            logger.error(f"⏰ Auth Service 요청 타임아웃: {auth_url} - {str(e)}")
-            return JSONResponse(
-                content={"detail": f"Auth Service 요청 타임아웃: {str(e)}"}, 
-                status_code=504
-            )
-        except Exception as e:
-            logger.error(f"❌ Auth Service 요청 실패: {auth_url} - {str(e)}")
-            return JSONResponse(
-                content={"detail": f"Auth Service 요청 실패: {str(e)}"}, 
-                status_code=500
-            )
-    
     try:
-        logger.info(f"🌈 POST 프록시 시작: 서비스={service}, 경로={path}")
-        body: bytes = await request.body()
-        logger.info(f"📦 요청 바디 크기: {len(body)} bytes")
-
-        factory = ServiceDiscovery(service_type=service)
-
-        files = None
-        params = None
-        data = None
-        headers = _forward_headers(request)
-
-        if service in FILE_REQUIRED_SERVICES:
-            if "upload" in path and not file:
-                logger.error(f"❌ 파일 업로드 필요: 서비스 {service}")
-                raise HTTPException(
-                    status_code=400, detail=f"서비스 {service}에는 파일 업로드가 필요합니다."
-                )
-            if file:
-                file_content = await file.read()
-                files = {"file": (file.filename, file_content, file.content_type)}
-                await file.seek(0)
-                logger.info(f"📁 파일 업로드: {file.filename}")
-            if sheet_names:
-                params = {"sheet_name": sheet_names}
-                logger.info(f"📋 시트 이름: {sheet_names}")
-
-        logger.info("🔄 서비스로 요청 전송 중...")
-        resp = await factory.request(
-            method="POST",
-            path=path,
-            headers=headers,
-            body=body if files is None else None,
-            files=files,
-            params=params,
-            data=data,
-            cookies=request.cookies,  # ✅ 세션 쿠키 전달
-        )
-
-        logger.info(f"✅ 서비스 응답: {resp.status_code}")
-        out = ResponseFactory.create_response(resp)
-        # ✅ Set-Cookie 패스스루
-        if "set-cookie" in resp.headers:
-            out.headers["set-cookie"] = resp.headers["set-cookie"]
-            logger.info(f"🍪 Set-Cookie 패스스루: {resp.headers['set-cookie']}")
-        
-        logger.info(f"🌈 POST 프록시 완료: {resp.status_code}")
-        return out
-
+        if service == ServiceType.AUTH:
+            return await _handle_auth_service_request(path, request)
+        else:
+            return await _handle_general_service_request(service, path, request, file, sheet_names)
     except HTTPException as he:
         logger.error(f"❌ HTTP 예외: {he.status_code} - {he.detail}")
         return JSONResponse(content={"detail": he.detail}, status_code=he.status_code)

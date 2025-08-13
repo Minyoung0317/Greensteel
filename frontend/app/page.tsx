@@ -12,36 +12,45 @@ export default function Home() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEmail(e.target.value)
+  // API 기본 URL 설정
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 
+    (process.env.NODE_ENV === 'production' 
+      ? 'https://gateway-production-eeb5.up.railway.app'
+      : 'http://localhost:8080')
+
+  const clearForm = () => {
+    setEmail('')
+    setPassword('')
+    setConfirmPassword('')
     setError('')
     setSuccess('')
   }
 
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPassword(e.target.value)
-    setError('')
-    setSuccess('')
-  }
-
-  const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setConfirmPassword(e.target.value)
+  const handleInputChange = (field: string, value: string) => {
+    switch (field) {
+      case 'email':
+        setEmail(value)
+        break
+      case 'password':
+        setPassword(value)
+        break
+      case 'confirmPassword':
+        setConfirmPassword(value)
+        break
+    }
     setError('')
     setSuccess('')
   }
 
   const showNotification = (title: string, message: string) => {
-    // 브라우저 알림 권한 확인 및 요청
-    if ('Notification' in window) {
-      if (Notification.permission === 'granted') {
-        new Notification(title, { body: message })
-      } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(permission => {
-          if (permission === 'granted') {
-            new Notification(title, { body: message })
-          }
-        })
-      }
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body: message })
+    } else if ('Notification' in window && Notification.permission !== 'denied') {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          new Notification(title, { body: message })
+        }
+      })
     }
   }
 
@@ -58,20 +67,6 @@ export default function Home() {
     setSuccess('')
 
     try {
-      console.log('=== 로그인 요청 시작 ===')
-      console.log('요청 데이터:', { email, password })
-
-      // 환경에 따른 API 엔드포인트 설정 (Gateway를 통해 Auth Service 호출)
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 
-        (process.env.NODE_ENV === 'production' 
-          ? 'https://greensteel-gateway-production-eeb5.up.railway.app'  // 실제 Railway Gateway URL
-          : 'http://localhost:8080')
-      
-      console.log('=== API URL 디버깅 ===')
-      console.log('NEXT_PUBLIC_API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL)
-      console.log('NODE_ENV:', process.env.NODE_ENV)
-      console.log('최종 API URL:', apiBaseUrl)
-      
       const response = await axios.post(`${apiBaseUrl}/api/v1/auth/login`, {
         email,
         password
@@ -79,29 +74,14 @@ export default function Home() {
         withCredentials: false
       })
 
-      console.log('=== 로그인 응답 ===')
-      console.log('응답 상태:', response.status)
-      console.log('응답 데이터:', response.data)
-
       const successMessage = response.data.message || '로그인 성공!'
       setSuccess(successMessage)
-      
-      // 로그인 성공 시 브라우저 알림 표시
       showNotification('GreenSteel 로그인', successMessage)
-      
-      // 입력 필드 초기화
-      setEmail('')
-      setPassword('')
+      clearForm()
 
     } catch (err: any) {
-      console.log('=== 로그인 오류 ===')
-      console.log('오류 상태:', err.response?.status)
-      console.log('오류 데이터:', err.response?.data)
-
       const errorMessage = err.response?.data?.detail || '로그인 중 오류가 발생했습니다.'
       setError(errorMessage)
-      
-      // 로그인 실패 시에도 알림 표시
       showNotification('GreenSteel 로그인', errorMessage)
     } finally {
       setIsLoading(false)
@@ -131,41 +111,17 @@ export default function Home() {
     setSuccess('')
 
     try {
-      console.log('=== 회원가입 요청 시작 ===')
-      console.log('요청 데이터:', { email, password })
-
-                         // 환경에 따른 API 엔드포인트 설정 (Gateway를 통해 Auth Service 호출)
-       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 
-         (process.env.NODE_ENV === 'production' 
-           ? 'https://greensteel-gateway-production-eeb5.up.railway.app'  // 실제 Railway Gateway URL
-           : 'http://localhost:8080')
-       
-       console.log('=== API URL 디버깅 (회원가입) ===')
-       console.log('NEXT_PUBLIC_API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL)
-       console.log('NODE_ENV:', process.env.NODE_ENV)
-       console.log('최종 API URL:', apiBaseUrl)
-       
-               const response = await axios.post(`${apiBaseUrl}/api/v1/auth/signup`, {
-         email,
-         password
-       }, {
-         withCredentials : false
-       })
-
-      console.log('=== 회원가입 응답 ===')
-      console.log('응답 상태:', response.status)
-      console.log('응답 데이터:', response.data)
+      const response = await axios.post(`${apiBaseUrl}/api/v1/auth/signup`, {
+        email,
+        password
+      }, {
+        withCredentials: false
+      })
 
       const successMessage = response.data.message || '회원가입 성공!'
       setSuccess(successMessage)
-      
-      // 회원가입 성공 시 브라우저 알림 표시
       showNotification('GreenSteel 회원가입', successMessage)
-      
-      // 입력 필드 초기화
-      setEmail('')
-      setPassword('')
-      setConfirmPassword('')
+      clearForm()
 
       // 로그인 모드로 전환
       setTimeout(() => {
@@ -174,14 +130,8 @@ export default function Home() {
       }, 2000)
 
     } catch (err: any) {
-      console.log('=== 회원가입 오류 ===')
-      console.log('오류 상태:', err.response?.status)
-      console.log('오류 데이터:', err.response?.data)
-
       const errorMessage = err.response?.data?.detail || '회원가입 중 오류가 발생했습니다.'
       setError(errorMessage)
-      
-      // 회원가입 실패 시에도 알림 표시
       showNotification('GreenSteel 회원가입', errorMessage)
     } finally {
       setIsLoading(false)
@@ -196,38 +146,18 @@ export default function Home() {
     setSuccess('')
 
     try {
-      console.log('=== 로그아웃 요청 시작 ===')
-
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 
-        (process.env.NODE_ENV === 'production' 
-          ? 'https://greensteel-gateway-production-eeb5.up.railway.app'
-          : 'http://localhost:8080')
-      
       const response = await axios.post(`${apiBaseUrl}/api/v1/auth/logout`, {}, {
         withCredentials: false
       })
 
-      console.log('=== 로그아웃 응답 ===')
-      console.log('응답 상태:', response.status)
-      console.log('응답 데이터:', response.data)
-
       const successMessage = response.data.message || '로그아웃 성공!'
       setSuccess(successMessage)
-      
       showNotification('GreenSteel 로그아웃', successMessage)
-      
-      // 입력 필드 초기화
-      setEmail('')
-      setPassword('')
+      clearForm()
 
     } catch (err: any) {
-      console.log('=== 로그아웃 오류 ===')
-      console.log('오류 상태:', err.response?.status)
-      console.log('오류 데이터:', err.response?.data)
-
       const errorMessage = err.response?.data?.detail || '로그아웃 중 오류가 발생했습니다.'
       setError(errorMessage)
-      
       showNotification('GreenSteel 로그아웃', errorMessage)
     } finally {
       setIsLoading(false)
@@ -242,65 +172,98 @@ export default function Home() {
     } else {
       setMode('login')
     }
-    setEmail('')
-    setPassword('')
-    setConfirmPassword('')
-    setError('')
-    setSuccess('')
+    clearForm()
   }
 
   const goToLogin = () => {
     setMode('login')
-    setEmail('')
-    setPassword('')
-    setConfirmPassword('')
-    setError('')
-    setSuccess('')
+    clearForm()
   }
 
-     return (
-     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-       <div className="w-full max-w-4xl bg-white shadow-xl rounded-xl flex flex-col md:flex-row overflow-hidden">
-         {/* 왼쪽 패널 - 그라데이션 배경 */}
-         <div className="hidden md:block md:w-1/2 bg-gradient-to-br from-green-600 to-green-800"></div>
- 
-         {/* 로그인/회원가입 패널 */}
-         <div className="w-full md:w-1/2 p-6 md:p-10 flex flex-col justify-center">
-                     <h1 
-             className="text-3xl md:text-4xl font-bold text-gray-800 mb-6 cursor-pointer hover:text-green-600 transition-colors text-center md:text-left"
-             onClick={goToLogin}
-           >
-             Greensteel
-           </h1>
+  const getFormHandler = () => {
+    switch (mode) {
+      case 'login':
+        return handleLogin
+      case 'signup':
+        return handleSignup
+      case 'logout':
+        return handleLogout
+      default:
+        return handleLogin
+    }
+  }
 
-          <form onSubmit={mode === 'login' ? handleLogin : mode === 'signup' ? handleSignup : handleLogout}>
-                         <input
-               type="email"
-               placeholder="이메일을 입력하세요."
-               value={email}
-               onChange={handleEmailChange}
-               className="border border-gray-300 rounded-lg px-4 py-3 md:py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-green-400 text-base"
-               disabled={isLoading}
-             />
-             <input
-               type="password"
-               placeholder="비밀번호를 입력하세요."
-               value={password}
-               onChange={handlePasswordChange}
-               className="border border-gray-300 rounded-lg px-4 py-3 md:py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-green-400 text-base"
-               disabled={isLoading}
-             />
+  const getButtonText = () => {
+    if (isLoading) {
+      switch (mode) {
+        case 'login':
+          return '로그인 중...'
+        case 'signup':
+          return '회원가입 중...'
+        case 'logout':
+          return '로그아웃 중...'
+        default:
+          return '처리 중...'
+      }
+    } else {
+      switch (mode) {
+        case 'login':
+          return '로그인'
+        case 'signup':
+          return '회원가입'
+        case 'logout':
+          return '로그아웃'
+        default:
+          return '제출'
+      }
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+      <div className="w-full max-w-4xl bg-white shadow-xl rounded-xl flex flex-col md:flex-row overflow-hidden">
+        {/* 왼쪽 패널 - 그라데이션 배경 */}
+        <div className="hidden md:block md:w-1/2 bg-gradient-to-br from-green-600 to-green-800"></div>
+
+        {/* 로그인/회원가입 패널 */}
+        <div className="w-full md:w-1/2 p-6 md:p-10 flex flex-col justify-center">
+          <button 
+            type="button"
+            className="text-3xl md:text-4xl font-bold text-gray-800 mb-6 cursor-pointer hover:text-green-600 transition-colors text-center md:text-left bg-transparent border-none p-0"
+            onClick={goToLogin}
+            aria-label="Greensteel 홈으로 이동"
+          >
+            Greensteel
+          </button>
+
+          <form onSubmit={getFormHandler()}>
+            <input
+              type="email"
+              placeholder="이메일을 입력하세요."
+              value={email}
+              onChange={(e) => handleInputChange('email', e.target.value)}
+              className="border border-gray-300 rounded-lg px-4 py-3 md:py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-green-400 text-base"
+              disabled={isLoading}
+            />
+            <input
+              type="password"
+              placeholder="비밀번호를 입력하세요."
+              value={password}
+              onChange={(e) => handleInputChange('password', e.target.value)}
+              className="border border-gray-300 rounded-lg px-4 py-3 md:py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-green-400 text-base"
+              disabled={isLoading}
+            />
             
-                         {mode === 'signup' && (
-               <input
-                 type="password"
-                 placeholder="비밀번호를 다시 입력하세요."
-                 value={confirmPassword}
-                 onChange={handleConfirmPasswordChange}
-                 className="border border-gray-300 rounded-lg px-4 py-3 md:py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-green-400 text-base"
-                 disabled={isLoading}
-               />
-             )}
+            {mode === 'signup' && (
+              <input
+                type="password"
+                placeholder="비밀번호를 다시 입력하세요."
+                value={confirmPassword}
+                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                className="border border-gray-300 rounded-lg px-4 py-3 md:py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-green-400 text-base"
+                disabled={isLoading}
+              />
+            )}
 
             {mode === 'login' && (
               <div className="flex items-center mb-4">
@@ -331,33 +294,31 @@ export default function Home() {
               </div>
             )}
 
-                         <button 
-               type="submit"
-               disabled={isLoading}
-               className="w-full bg-green-600 text-white py-3 md:py-2 rounded-lg font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-50 disabled:cursor-not-allowed text-base"
-             >
-               {isLoading 
-                 ? (mode === 'login' ? '로그인 중...' : mode === 'signup' ? '회원가입 중...' : '로그아웃 중...') 
-                 : (mode === 'login' ? '로그인' : mode === 'signup' ? '회원가입' : '로그아웃')}
-             </button>
+            <button 
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-green-600 text-white py-3 md:py-2 rounded-lg font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-50 disabled:cursor-not-allowed text-base"
+            >
+              {getButtonText()}
+            </button>
           </form>
 
-                     {mode === 'login' && (
-             <div className="mt-2">
-               <button 
-                 onClick={switchMode}
-                 className="w-full bg-gray-100 text-gray-700 py-3 md:py-2 rounded-lg font-semibold hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 text-base"
-               >
-                 회원가입하기
-               </button>
-             </div>
-           )}
+          {mode === 'login' && (
+            <div className="mt-2">
+              <button 
+                onClick={switchMode}
+                className="w-full bg-gray-100 text-gray-700 py-3 md:py-2 rounded-lg font-semibold hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 text-base"
+              >
+                회원가입하기
+              </button>
+            </div>
+          )}
 
-                     <div className="text-xs text-gray-400 mt-8 md:mt-10 text-center md:text-left">
-             최적의 솔루션 파트너는 GREENSTEEL입니다.
-             <br />
-             <span className="block mt-1"> https://www.minyoung.cloud/ | Tel : 010-2208-5322</span>
-           </div>
+          <div className="text-xs text-gray-400 mt-8 md:mt-10 text-center md:text-left">
+            최적의 솔루션 파트너는 GREENSTEEL입니다.
+            <br />
+            <span className="block mt-1"> https://www.minyoung.cloud/ | Tel : 010-2208-5322</span>
+          </div>
         </div>
       </div>
     </div>
