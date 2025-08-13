@@ -164,7 +164,10 @@ app = FastAPI(
 
 # ---------------------------------------------------------------------
 # CORS: 환경변수 기반 설정으로 개선
-FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "https://www.minyoung.cloud")
+FRONTEND_ORIGIN_ENV = os.getenv("FRONTEND_ORIGIN", "https://www.minyoung.cloud")
+
+# 환경변수에서 콤마로 구분된 도메인들을 파싱
+FRONTEND_ORIGINS = [origin.strip() for origin in FRONTEND_ORIGIN_ENV.split(",") if origin.strip()]
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -175,12 +178,12 @@ ALLOWED_ORIGINS = [
     "http://www.minyoung.cloud",  # HTTP 버전도 추가
     "http://minyoung.cloud",      # HTTP 버전도 추가
     "https://greensteel.vercel.app",
-    FRONTEND_ORIGIN  # 환경변수에서 가져온 값
-]
+] + FRONTEND_ORIGINS  # 환경변수에서 가져온 값들을 추가
 
 # 디버깅을 위한 로그 추가
 logger.info("🔧 CORS 설정 정보:")
-logger.info(f"   FRONTEND_ORIGIN: {FRONTEND_ORIGIN}")
+logger.info(f"   FRONTEND_ORIGIN_ENV: {FRONTEND_ORIGIN_ENV}")
+logger.info(f"   FRONTEND_ORIGINS (파싱됨): {FRONTEND_ORIGINS}")
 logger.info(f"   ALLOWED_ORIGINS: {ALLOWED_ORIGINS}")
 
 ALLOW_ORIGIN_REGEX = r"^https:\/\/[a-z0-9-]+\.vercel\.app$"  # 모든 Vercel 프리뷰 허용
@@ -197,7 +200,7 @@ async def cors_debug_middleware(request: Request, call_next):
     logger.info(f"   Origin: {origin}")
     logger.info(f"   User-Agent: {request.headers.get('user-agent', 'NOT_SET')}")
     logger.info(f"   Allowed Origins: {ALLOWED_ORIGINS}")
-    logger.info(f"   FRONTEND_ORIGIN: {FRONTEND_ORIGIN}")
+    logger.info(f"   FRONTEND_ORIGIN_ENV: {FRONTEND_ORIGIN_ENV}")
     
     if origin:
         is_allowed = origin in ALLOWED_ORIGINS or re.match(ALLOW_ORIGIN_REGEX, origin)
@@ -245,7 +248,7 @@ async def root():
 async def root_options(request: Request):
     """루트 레벨 OPTIONS 요청 처리"""
     logger.info(f"🌐 루트 OPTIONS 요청: {request.headers.get('Origin', 'NOT_SET')}")
-    origin = request.headers.get('Origin', FRONTEND_ORIGIN)
+    origin = request.headers.get('Origin', FRONTEND_ORIGINS[0] if FRONTEND_ORIGINS else "https://www.minyoung.cloud")
     
     return Response(
         status_code=200,
