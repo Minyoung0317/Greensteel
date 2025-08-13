@@ -53,13 +53,13 @@ RAILWAY_ENV = (
 )
 
 # Railway 환경변수 디버깅
-logger.info(f"🔍 Auth Service Railway 환경변수 디버깅:")
+logger.info("🔍 Auth Service Railway 환경변수 디버깅:")
 logger.info(f"   RAILWAY_ENVIRONMENT: {os.getenv('RAILWAY_ENVIRONMENT', 'NOT_SET')}")
 logger.info(f"   PORT: {os.getenv('PORT', 'NOT_SET')}")
 logger.info(f"   DATABASE_URL: {os.getenv('DATABASE_URL', 'NOT_SET')[:50]}..." if os.getenv('DATABASE_URL') else "NOT_SET")
 
 # 모든 환경변수 디버깅 (Railway 문제 해결용)
-logger.info(f"🔍 Auth Service 전체 환경변수 디버깅:")
+logger.info("🔍 Auth Service 전체 환경변수 디버깅:")
 for key, value in os.environ.items():
     if 'RAILWAY' in key or 'AUTH' in key or 'PORT' in key or 'DATABASE' in key:
         logger.info(f"   {key}: {value}")
@@ -108,6 +108,10 @@ async def startup_event():
 # Auth Service는 내부 통신만 하므로 CORS 설정 불필요
 logger.info("🔒 Auth Service - 내부 통신만 처리 (CORS 설정 없음)")
 
+# 임시 메모리 저장소 (PostgreSQL 연결 실패 시 사용)
+MEMORY_USERS = {}
+MEMORY_SESSIONS = {}
+
 # Postgres 연결
 async def get_db_connection():
     """Postgres 데이터베이스 연결"""
@@ -117,12 +121,16 @@ async def get_db_connection():
         return conn
     except Exception as e:
         logger.error(f"❌ 데이터베이스 연결 실패: {str(e)}")
-        raise
+        logger.warning("⚠️ 메모리 기반 인증으로 전환")
+        return None
 
 async def init_database():
     """데이터베이스 초기화 (테이블 생성)"""
     try:
         conn = await get_db_connection()
+        if conn is None:
+            logger.warning("⚠️ PostgreSQL 연결 실패 - 메모리 기반 인증 사용")
+            return
         
         # 사용자 테이블 생성
         await conn.execute('''
@@ -146,10 +154,36 @@ async def init_database():
             )
         ''')
         
+        # 테스트용 기본 사용자 추가 (없는 경우에만)
+        try:
+            test_email = "test@greensteel.com"
+            test_password_hash = str(hash("123456"))
+            
+            existing_user = await conn.fetchrow(
+                "SELECT id FROM users WHERE email = $1",
+                test_email
+            )
+            
+            if not existing_user:
+                await conn.execute(
+                    """
+                    INSERT INTO users (email, password_hash)
+                    VALUES ($1, $2)
+                    """,
+                    test_email, test_password_hash
+                )
+                logger.info("✅ 테스트용 기본 사용자 추가: test@greensteel.com / 123456")
+            else:
+                logger.info("ℹ️ 테스트용 기본 사용자 이미 존재함")
+                
+        except Exception as e:
+            logger.warning(f"⚠️ 테스트용 사용자 추가 실패: {str(e)}")
+        
         await conn.close()
         logger.info("✅ 데이터베이스 초기화 완료")
     except Exception as e:
         logger.error(f"❌ 데이터베이스 초기화 실패: {str(e)}")
+        logger.warning("⚠️ 메모리 기반 인증으로 전환")
 
 # Pydantic 모델 정의
 class LoginRequest(BaseModel):
@@ -214,42 +248,82 @@ async def login(request: LoginRequest, response: Response):
         if not request.email or not request.password:
             raise HTTPException(status_code=400, detail="이메일과 비밀번호를 입력해주세요")
         
-        # Postgres에서 사용자 검증
-        try:
-            conn = await get_db_connection()
+        # 데이터베이스 또는 메모리에서 사용자 검증
+        conn = await get_db_connection()
+        
+        if conn is None:
+            # 메모리 기반 인증 (PostgreSQL 연결 실패 시)
+            logger.info("🔄 메모리 기반 인증 사용")
             
-            # 비밀번호 해시화 (실제로는 bcrypt 사용 권장)
+            # 비밀번호 해시화
             password_hash = str(hash(request.password))
             
-            # 사용자 조회
-            user = await conn.fetchrow(
-                "SELECT id, email FROM users WHERE email = $1 AND password_hash = $2",
-                request.email, password_hash
-            )
-            
-            if not user:
-                await conn.close()
+            # 메모리에서 사용자 조회
+            user_data = MEMORY_USERS.get(request.email)
+            if not user_data or user_data['password_hash'] != password_hash:
                 logger.warning(f"❌ 로그인 실패: 이메일 또는 비밀번호 불일치 - {request.email}")
                 raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다")
             
-            logger.info(f"✅ 사용자 인증 성공: ID={user['id']}, Email={user['email']}")
+            user = {'id': user_data['id'], 'email': user_data['email']}
+            logger.info(f"✅ 메모리 기반 사용자 인증 성공: ID={user['id']}, Email={user['email']}")
             
             # 세션 ID 생성
             session_id = create_session_id()
             logger.info(f"🔑 세션 ID 생성: {session_id}")
             
-            # Postgres에 세션 저장
-            await conn.execute(
-                """
-                INSERT INTO sessions (id, user_id, email, expires_at)
-                VALUES ($1, $2, $3, $4)
-                """,
-                session_id, user['id'], user['email'], 
-                get_current_time() + timedelta(hours=24)
-            )
+            # 메모리에 세션 저장
+            MEMORY_SESSIONS[session_id] = {
+                'user_id': user['id'],
+                'email': user['email'],
+                'created_at': get_current_time(),
+                'expires_at': get_current_time() + timedelta(hours=24)
+            }
             
-            await conn.close()
-            logger.info(f"💾 세션 데이터베이스 저장 완료: UserID={user['id']}, SessionID={session_id}")
+            logger.info(f"💾 세션 메모리 저장 완료: UserID={user['id']}, SessionID={session_id}")
+            
+        else:
+            # PostgreSQL 기반 인증
+            try:
+                # 비밀번호 해시화 (실제로는 bcrypt 사용 권장)
+                password_hash = str(hash(request.password))
+                
+                # 사용자 조회
+                user = await conn.fetchrow(
+                    "SELECT id, email FROM users WHERE email = $1 AND password_hash = $2",
+                    request.email, password_hash
+                )
+                
+                if not user:
+                    logger.warning(f"❌ 로그인 실패: 이메일 또는 비밀번호 불일치 - {request.email}")
+                    raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다")
+                
+                logger.info(f"✅ PostgreSQL 기반 사용자 인증 성공: ID={user['id']}, Email={user['email']}")
+                
+                # 세션 ID 생성
+                session_id = create_session_id()
+                logger.info(f"🔑 세션 ID 생성: {session_id}")
+                
+                # Postgres에 세션 저장
+                await conn.execute(
+                    """
+                    INSERT INTO sessions (id, user_id, email, expires_at)
+                    VALUES ($1, $2, $3, $4)
+                    """,
+                    session_id, user['id'], user['email'], 
+                    get_current_time() + timedelta(hours=24)
+                )
+                
+                logger.info(f"💾 세션 데이터베이스 저장 완료: UserID={user['id']}, SessionID={session_id}")
+                
+            except HTTPException:
+                await conn.close()
+                raise
+            except Exception as db_error:
+                await conn.close()
+                logger.error(f"❌ PostgreSQL 인증 실패: {str(db_error)}")
+                raise HTTPException(status_code=500, detail="데이터베이스 오류가 발생했습니다")
+            finally:
+                await conn.close()
             
             # HttpOnly 쿠키 설정
             response.set_cookie(
@@ -289,10 +363,6 @@ async def login(request: LoginRequest, response: Response):
                 }
             )
             
-        except Exception as db_error:
-            logger.error(f"❌ 데이터베이스 오류: {str(db_error)}")
-            raise HTTPException(status_code=500, detail="데이터베이스 오류가 발생했습니다")
-        
     except HTTPException:
         raise
     except Exception as e:
@@ -314,40 +384,84 @@ async def signup(request: SignupRequest):
         if not request.email or not request.password:
             raise HTTPException(status_code=400, detail="이메일과 비밀번호를 입력해주세요")
         
-        # Postgres에 사용자 저장
-        try:
-            conn = await get_db_connection()
+        # 데이터베이스 또는 메모리에 사용자 저장
+        conn = await get_db_connection()
+        
+        if conn is None:
+            # 메모리 기반 회원가입 (PostgreSQL 연결 실패 시)
+            logger.info("🔄 메모리 기반 회원가입 사용")
             
             # 이메일 중복 확인
-            existing_user = await conn.fetchrow(
-                "SELECT id FROM users WHERE email = $1",
-                request.email
-            )
-            
-            if existing_user:
-                await conn.close()
+            if request.email in MEMORY_USERS:
                 logger.warning(f"❌ 회원가입 실패: 이미 존재하는 이메일 - {request.email}")
                 raise HTTPException(status_code=400, detail="이미 존재하는 이메일입니다")
             
             logger.info(f"✅ 이메일 중복 확인 통과: {request.email}")
             
-            # 비밀번호 해시화 (실제로는 bcrypt 사용 권장)
+            # 비밀번호 해시화
             password_hash = str(hash(request.password))
             logger.info(f"🔐 비밀번호 해시화 완료: {request.email}")
             
-            # 사용자 저장
-            user = await conn.fetchrow(
-                """
-                INSERT INTO users (email, password_hash)
-                VALUES ($1, $2)
-                RETURNING id, email, created_at
-                """,
-                request.email, password_hash
-            )
+            # 메모리에 사용자 저장
+            user_id = len(MEMORY_USERS) + 1
+            current_time = get_current_time()
             
-            await conn.close()
+            MEMORY_USERS[request.email] = {
+                'id': user_id,
+                'email': request.email,
+                'password_hash': password_hash,
+                'created_at': current_time
+            }
             
-            logger.info(f"💾 사용자 저장 완료: {user['email']} (ID: {user['id']})")
+            user = {
+                'id': user_id,
+                'email': request.email,
+                'created_at': current_time
+            }
+            
+            logger.info(f"💾 메모리 사용자 저장 완료: {user['email']} (ID: {user['id']})")
+            
+        else:
+            # PostgreSQL 기반 회원가입
+            try:
+                # 이메일 중복 확인
+                existing_user = await conn.fetchrow(
+                    "SELECT id FROM users WHERE email = $1",
+                    request.email
+                )
+                
+                if existing_user:
+                    await conn.close()
+                    logger.warning(f"❌ 회원가입 실패: 이미 존재하는 이메일 - {request.email}")
+                    raise HTTPException(status_code=400, detail="이미 존재하는 이메일입니다")
+                
+                logger.info(f"✅ 이메일 중복 확인 통과: {request.email}")
+                
+                # 비밀번호 해시화 (실제로는 bcrypt 사용 권장)
+                password_hash = str(hash(request.password))
+                logger.info(f"🔐 비밀번호 해시화 완료: {request.email}")
+                
+                # 사용자 저장
+                user = await conn.fetchrow(
+                    """
+                    INSERT INTO users (email, password_hash)
+                    VALUES ($1, $2)
+                    RETURNING id, email, created_at
+                    """,
+                    request.email, password_hash
+                )
+                
+                await conn.close()
+                
+                logger.info(f"💾 PostgreSQL 사용자 저장 완료: {user['email']} (ID: {user['id']})")
+                
+            except asyncpg.UniqueViolationError:
+                await conn.close()
+                raise HTTPException(status_code=400, detail="이미 존재하는 이메일입니다")
+            except Exception as db_error:
+                await conn.close()
+                logger.error(f"❌ PostgreSQL 회원가입 실패: {str(db_error)}")
+                raise HTTPException(status_code=500, detail="데이터베이스 오류가 발생했습니다")
             
             # 응답 데이터 로깅
             response_data = {
@@ -369,16 +483,10 @@ async def signup(request: SignupRequest):
                 user_data={
                     "user_id": user['id'],
                     "email": user['email'],
-                    "created_at": user['created_at'].isoformat()
+                    "created_at": user['created_at'].isoformat() if hasattr(user['created_at'], 'isoformat') else user['created_at']
                 }
             )
             
-        except asyncpg.UniqueViolationError:
-            raise HTTPException(status_code=400, detail="이미 존재하는 이메일입니다")
-        except Exception as db_error:
-            logger.error(f"❌ 데이터베이스 오류: {str(db_error)}")
-            raise HTTPException(status_code=500, detail="데이터베이스 오류가 발생했습니다")
-        
     except HTTPException:
         raise
     except Exception as e:
