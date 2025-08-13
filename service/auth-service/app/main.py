@@ -20,21 +20,28 @@ from typing import Optional
 import asyncpg
 import asyncio
 
-# httpx 로그를 현재 시간으로 설정
+# 한국 시간대 설정
 os.environ['TZ'] = 'Asia/Seoul'
 
+# 로깅 설정 (한국 시간대 적용)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
+    handlers=[logging.StreamHandler(sys.stdout)],
+    datefmt="%Y-%m-%d %H:%M:%S"
 )
 logger = logging.getLogger("auth-service")
 
-# Railway 환경변수 디버깅
-logger.info(f"🔍 Auth Service Railway 환경변수 디버깅:")
-logger.info(f"   RAILWAY_ENVIRONMENT: {os.getenv('RAILWAY_ENVIRONMENT', 'NOT_SET')}")
-logger.info(f"   PORT: {os.getenv('PORT', 'NOT_SET')}")
-logger.info(f"   DATABASE_URL: {os.getenv('DATABASE_URL', 'NOT_SET')[:50]}..." if os.getenv('DATABASE_URL') else "NOT_SET")
+# Uvicorn 액세스 로그 형식 통일
+uvicorn_access_logger = logging.getLogger("uvicorn.access")
+uvicorn_access_logger.handlers.clear()
+uvicorn_access_handler = logging.StreamHandler(sys.stdout)
+uvicorn_access_handler.setFormatter(logging.Formatter(
+    "%(asctime)s - uvicorn.access - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+))
+uvicorn_access_logger.addHandler(uvicorn_access_handler)
+uvicorn_access_logger.setLevel(logging.INFO)
 
 if os.getenv("RAILWAY_ENVIRONMENT") != "true":
     load_dotenv()
@@ -44,6 +51,12 @@ RAILWAY_ENV = (
     os.getenv("RAILWAY_ENVIRONMENT", "false").lower() == "true" or
     os.getenv("RAILWAY_ENVIRONMENT", "").lower() == "production"
 )
+
+# Railway 환경변수 디버깅
+logger.info(f"🔍 Auth Service Railway 환경변수 디버깅:")
+logger.info(f"   RAILWAY_ENVIRONMENT: {os.getenv('RAILWAY_ENVIRONMENT', 'NOT_SET')}")
+logger.info(f"   PORT: {os.getenv('PORT', 'NOT_SET')}")
+logger.info(f"   DATABASE_URL: {os.getenv('DATABASE_URL', 'NOT_SET')[:50]}..." if os.getenv('DATABASE_URL') else "NOT_SET")
 
 # Railway 환경에서 로그 지속성 설정
 if RAILWAY_ENV:
@@ -506,6 +519,8 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=port,
         reload=False,
-        log_level="info"
+        log_level="info",
+        access_log=True,
+        log_config=None  # 우리가 설정한 로깅 설정 사용
     )
 
