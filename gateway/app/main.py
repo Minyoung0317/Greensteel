@@ -357,14 +357,33 @@ async def proxy_post(
         # 끝 슬래시 제거
         AUTH_SERVICE_URL = AUTH_SERVICE_URL.rstrip('/')
         auth_url = f"{AUTH_SERVICE_URL}/auth/{path}"
+        
+        # URL 검증
         logger.info(f"🌐 Auth Service URL: {auth_url}")
         logger.info(f"🔧 AUTH_SERVICE_URL 환경변수: {os.getenv('AUTH_SERVICE_URL', 'NOT_SET')}")
         logger.info(f"🔧 RAILWAY_ENVIRONMENT: {os.getenv('RAILWAY_ENVIRONMENT', 'NOT_SET')}")
+        logger.info(f"🔧 URL 구성: {AUTH_SERVICE_URL} + /auth/{path} = {auth_url}")
+        
+        # Auth Service URL이 올바른 형식인지 확인
+        if not auth_url.startswith(('http://', 'https://')):
+            logger.error(f"❌ 잘못된 Auth Service URL 형식: {auth_url}")
+            return JSONResponse(
+                content={"detail": f"잘못된 Auth Service URL: {auth_url}"}, 
+                status_code=500
+            )
         
         import httpx
         try:
+            # Auth Service 연결 테스트
+            logger.info(f"🔍 Auth Service 연결 테스트 시작...")
+            logger.info(f"🔍 테스트 URL: {auth_url}")
+            
             async with httpx.AsyncClient() as client:
                 logger.info(f"🔄 Auth Service로 요청 전송 중...")
+                logger.info(f"🔄 요청 URL: {auth_url}")
+                logger.info(f"🔄 요청 헤더: {_forward_headers(request)}")
+                logger.info(f"🔄 요청 바디: {body.decode('utf-8', errors='ignore')}")
+                
                 response = await client.request(
                     method="POST",
                     url=auth_url,

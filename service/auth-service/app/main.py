@@ -199,7 +199,7 @@ async def log_requests(request: Request, call_next):
         logger.error(traceback.format_exc())
         raise
 
-@app.post("/api/v1/auth/login")
+@app.post("/auth/login")
 async def login(request: LoginRequest, response: Response):
     """
     로그인 처리 - 세션 쿠키 기반
@@ -299,7 +299,7 @@ async def login(request: LoginRequest, response: Response):
         logger.error(f"❌ 로그인 처리 중 오류: {str(e)}")
         raise HTTPException(status_code=500, detail=f"로그인 처리 실패: {str(e)}")
 
-@app.post("/api/v1/auth/signup")
+@app.post("/auth/signup")
 async def signup(request: SignupRequest):
     """
     회원가입 처리
@@ -385,7 +385,7 @@ async def signup(request: SignupRequest):
         logger.error(f"❌ 회원가입 처리 중 오류: {str(e)}")
         raise HTTPException(status_code=500, detail=f"회원가입 처리 실패: {str(e)}")
 
-@app.post("/api/v1/auth/logout")
+@app.post("/auth/logout")
 async def logout(request: Request, response: Response):
     """
     로그아웃 처리 - Postgres에서 세션 삭제
@@ -436,7 +436,7 @@ async def logout(request: Request, response: Response):
         logger.error(f"❌ 로그아웃 처리 중 오류: {str(e)}")
         raise HTTPException(status_code=500, detail=f"로그아웃 처리 실패: {str(e)}")
 
-@app.get("/api/v1/auth/verify")
+@app.get("/auth/verify")
 async def verify_session(request: Request):
     """
     세션 검증 - Postgres에서 세션 확인
