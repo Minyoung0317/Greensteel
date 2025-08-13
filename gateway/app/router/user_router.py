@@ -67,12 +67,16 @@ async def signup(request: SignupRequest):
         print("회원가입 데이터:", json.dumps(signup_data, indent=2, ensure_ascii=False))
         
         # JSON 파일로 저장 (선택사항)
-        log_dir = "/app/logs"
+        log_dir = "logs"  # 상대 경로로 변경
         os.makedirs(log_dir, exist_ok=True)
         
         log_file = os.path.join(log_dir, f"signup_{current_time.strftime('%Y%m%d_%H%M%S')}.json")
-        with open(log_file, 'w', encoding='utf-8') as f:
-            json.dump(signup_data, f, indent=2, ensure_ascii=False)
+        try:
+            with open(log_file, 'w', encoding='utf-8') as f:
+                json.dump(signup_data, f, indent=2, ensure_ascii=False)
+            print(f"✅ 로그 파일 저장됨: {log_file}")
+        except Exception as e:
+            print(f"⚠️ 로그 파일 저장 실패: {str(e)}")
         
         # Auth Service로 데이터 전달 (선택사항)
         try:
@@ -131,12 +135,16 @@ async def login(request: LoginRequest):
         print("=" * 60)
         
         # JSON 파일로 저장 (선택사항)
-        log_dir = "/app/logs"
+        log_dir = "logs"  # 상대 경로로 변경
         os.makedirs(log_dir, exist_ok=True)
         
         log_file = os.path.join(log_dir, f"gateway_login_{current_time.strftime('%Y%m%d_%H%M%S')}.json")
-        with open(log_file, 'w', encoding='utf-8') as f:
-            json.dump(login_data, f, indent=2, ensure_ascii=False)
+        try:
+            with open(log_file, 'w', encoding='utf-8') as f:
+                json.dump(login_data, f, indent=2, ensure_ascii=False)
+            print(f"✅ 로그 파일 저장됨: {log_file}")
+        except Exception as e:
+            print(f"⚠️ 로그 파일 저장 실패: {str(e)}")
         
         # Auth Service로 데이터 전달
         print("=" * 60)

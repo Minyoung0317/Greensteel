@@ -45,7 +45,8 @@ class ServiceDiscovery:
         body: Optional[bytes] = None,
         files: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None,
-        data: Optional[Dict[str, Any]] = None
+        data: Optional[Dict[str, Any]] = None,
+        cookies: Optional[Dict[str, str]] = None
     ):
         base_url = self.base_urls.get(self.service_type)
         if not base_url:
@@ -64,6 +65,7 @@ class ServiceDiscovery:
                     files=files,
                     params=params,
                     data=data,
+                    cookies=cookies,
                     timeout=30.0
                 )
                 logger.info(f"✅ 서비스 응답: {response.status_code} - {url}")

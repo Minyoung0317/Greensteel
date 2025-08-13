@@ -24,8 +24,7 @@ import httpx
 from app.router.user_router import router as user_router
 from app.router.chatbot_router import router as chatbot_router
 # JWT 미들웨어 제거됨 - 웹 회원가입만 사용
-from app.domain.discovery.model.service_discovery import ServiceDiscovery
-from app.domain.discovery.model.service_type import ServiceType
+from app.domain.discovery.model.service_discovery import ServiceDiscovery, ServiceType
 from app.common.utility.constant.settings import Settings
 from app.common.utility.factory.response_factory import ResponseFactory
 
@@ -76,14 +75,14 @@ httpx_logger.addHandler(httpx_handler)
 httpx_logger.setLevel(logging.INFO)
 
 # Railway 환경변수 디버깅
-logger.info(f"🔍 Gateway Railway 환경변수 디버깅:")
+logger.info("🔍 Gateway Railway 환경변수 디버깅:")
 logger.info(f"   RAILWAY_ENVIRONMENT: {os.getenv('RAILWAY_ENVIRONMENT', 'NOT_SET')}")
 logger.info(f"   PORT: {os.getenv('PORT', 'NOT_SET')}")
 logger.info(f"   AUTH_SERVICE_URL: {os.getenv('AUTH_SERVICE_URL', 'NOT_SET')}")
 logger.info(f"   RAILWAY_ENV (계산됨): {RAILWAY_ENV}")
 
 # 모든 환경변수 디버깅 (Railway 문제 해결용)
-logger.info(f"🔍 전체 환경변수 디버깅:")
+logger.info("🔍 전체 환경변수 디버깅:")
 for key, value in os.environ.items():
     if 'RAILWAY' in key or 'AUTH' in key or 'PORT' in key or 'DATABASE' in key:
         logger.info(f"   {key}: {value}")
@@ -180,7 +179,7 @@ ALLOWED_ORIGINS = [
 ]
 
 # 디버깅을 위한 로그 추가
-logger.info(f"🔧 CORS 설정 정보:")
+logger.info("🔧 CORS 설정 정보:")
 logger.info(f"   FRONTEND_ORIGIN: {FRONTEND_ORIGIN}")
 logger.info(f"   ALLOWED_ORIGINS: {ALLOWED_ORIGINS}")
 
@@ -288,7 +287,7 @@ gateway_router = APIRouter(prefix="/api/v1", tags=["Gateway API"])
 async def proxy_options(service: ServiceType, path: str, request: Request):
     """OPTIONS 요청을 처리합니다 (CORS preflight)."""
     logger.info(f"🚀 [PROXY >>] Method: OPTIONS, Service: {service.value}, Path: /{path}")
-    logger.info(f"🌐 OPTIONS 요청 CORS 디버깅:")
+    logger.info("🌐 OPTIONS 요청 CORS 디버깅:")
     logger.info(f"   Origin: {request.headers.get('Origin', 'NOT_SET')}")
     logger.info(f"   Access-Control-Request-Method: {request.headers.get('Access-Control-Request-Method', 'NOT_SET')}")
     logger.info(f"   Access-Control-Request-Headers: {request.headers.get('Access-Control-Request-Headers', 'NOT_SET')}")
@@ -309,7 +308,7 @@ async def proxy_options(service: ServiceType, path: str, request: Request):
         )
     
     logger.info(f"✅ CORS Origin 허용: {origin}")
-    logger.info(f"✅ OPTIONS 응답 헤더 설정 완료")
+    logger.info("✅ OPTIONS 응답 헤더 설정 완료")
     
     # 더 포괄적인 CORS 헤더 설정
     response_headers = {
@@ -375,11 +374,11 @@ async def proxy_post(
         import httpx
         try:
             # Auth Service 연결 테스트
-            logger.info(f"🔍 Auth Service 연결 테스트 시작...")
+            logger.info("🔍 Auth Service 연결 테스트 시작...")
             logger.info(f"🔍 테스트 URL: {auth_url}")
             
             async with httpx.AsyncClient() as client:
-                logger.info(f"🔄 Auth Service로 요청 전송 중...")
+                logger.info("🔄 Auth Service로 요청 전송 중...")
                 logger.info(f"🔄 요청 URL: {auth_url}")
                 logger.info(f"🔄 요청 헤더: {_forward_headers(request)}")
                 logger.info(f"🔄 요청 바디: {body.decode('utf-8', errors='ignore')}")
@@ -469,7 +468,7 @@ async def proxy_post(
                 params = {"sheet_name": sheet_names}
                 logger.info(f"📋 시트 이름: {sheet_names}")
 
-        logger.info(f"🔄 서비스로 요청 전송 중...")
+        logger.info("🔄 서비스로 요청 전송 중...")
         resp = await factory.request(
             method="POST",
             path=path,
@@ -503,6 +502,7 @@ async def proxy_post(
 # ---------------------------------------------------------------------
 # 라우터 등록
 app.include_router(gateway_router)
+app.include_router(user_router)  # user_router 등록 추가
 
 # ---------------------------------------------------------------------
 # 로컬 실행용
