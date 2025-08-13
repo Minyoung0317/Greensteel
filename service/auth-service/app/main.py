@@ -58,6 +58,12 @@ logger.info(f"   RAILWAY_ENVIRONMENT: {os.getenv('RAILWAY_ENVIRONMENT', 'NOT_SET
 logger.info(f"   PORT: {os.getenv('PORT', 'NOT_SET')}")
 logger.info(f"   DATABASE_URL: {os.getenv('DATABASE_URL', 'NOT_SET')[:50]}..." if os.getenv('DATABASE_URL') else "NOT_SET")
 
+# 모든 환경변수 디버깅 (Railway 문제 해결용)
+logger.info(f"🔍 Auth Service 전체 환경변수 디버깅:")
+for key, value in os.environ.items():
+    if 'RAILWAY' in key or 'AUTH' in key or 'PORT' in key or 'DATABASE' in key:
+        logger.info(f"   {key}: {value}")
+
 # Railway 환경에서 로그 지속성 설정
 if RAILWAY_ENV:
     logger.info("🚂 Railway 환경에서 로그 지속성 설정")

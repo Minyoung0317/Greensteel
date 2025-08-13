@@ -82,13 +82,27 @@ logger.info(f"   PORT: {os.getenv('PORT', 'NOT_SET')}")
 logger.info(f"   AUTH_SERVICE_URL: {os.getenv('AUTH_SERVICE_URL', 'NOT_SET')}")
 logger.info(f"   RAILWAY_ENV (계산됨): {RAILWAY_ENV}")
 
+# 모든 환경변수 디버깅 (Railway 문제 해결용)
+logger.info(f"🔍 전체 환경변수 디버깅:")
+for key, value in os.environ.items():
+    if 'RAILWAY' in key or 'AUTH' in key or 'PORT' in key or 'DATABASE' in key:
+        logger.info(f"   {key}: {value}")
+
 # 환경변수 검증
 if RAILWAY_ENV:
     auth_url = os.getenv('AUTH_SERVICE_URL')
     if not auth_url:
         logger.error("❌ Railway 환경에서 AUTH_SERVICE_URL이 설정되지 않음")
+        logger.error("❌ Railway에서 AUTH_SERVICE_URL 환경변수를 설정해주세요")
     else:
         logger.info(f"✅ AUTH_SERVICE_URL 설정됨: {auth_url}")
+else:
+    logger.info("🐳 Docker 환경에서 AUTH_SERVICE_URL 확인 중...")
+    auth_url = os.getenv('AUTH_SERVICE_URL')
+    if auth_url:
+        logger.info(f"✅ AUTH_SERVICE_URL 설정됨: {auth_url}")
+    else:
+        logger.warning("⚠️ AUTH_SERVICE_URL이 설정되지 않음 (기본값 사용)")
 
 # Docker/Railway 환경에서 로그 레벨 강제 설정
 if os.getenv("RAILWAY_ENVIRONMENT", "false").lower() == "true" or os.getenv("RAILWAY_ENVIRONMENT", "").lower() == "production":
